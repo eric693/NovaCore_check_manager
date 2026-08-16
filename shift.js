@@ -37,7 +37,7 @@ function t(code, params = {}) {
 //  新增：載入翻譯檔案
 async function loadTranslations(lang) {
     try {
-        const res = await fetch(`https://eric693.github.io/Linling_check_manager/i18n/${lang}.json`);
+        const res = await fetch(`https://eric693.github.io/yi-chun_check_manager/i18n/${lang}.json`);
         if (!res.ok) {
             throw new Error(`HTTP 錯誤: ${res.status}`);
         }
