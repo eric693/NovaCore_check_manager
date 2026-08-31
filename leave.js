@@ -387,7 +387,7 @@ async function submitLeaveApplication() {
         console.log(' 後端回應:', response);
         
         if (response.ok) {
-            showNotification(`請假申請已提交！時數：${workHours} 小時`, 'success');
+            showNotification(t('NOTIF_LEAVE_SUBMITTED_HOURS', { hours: workHours }), 'success');
             
             // 清空表單
             document.getElementById('leave-type').value = '';
@@ -410,7 +410,7 @@ async function submitLeaveApplication() {
         }
     } catch (error) {
         console.error(' 提交請假申請失敗:', error);
-        showNotification('網路錯誤，請稍後再試', 'error');
+        showNotification(t('NOTIF_NETWORK_ERROR_RETRY'), 'error');
     } finally {
         if (button) {
             button.disabled = false;
@@ -429,17 +429,17 @@ function validateLeaveForm() {
     const reason = document.getElementById('leave-reason').value;
     
     if (!leaveType) {
-        showNotification('請選擇假別', 'error');
+        showNotification(t('NOTIF_SELECT_LEAVE_TYPE'), 'error');
         return false;
     }
     
     if (!startTime) {
-        showNotification('請選擇開始時間', 'error');
+        showNotification(t('NOTIF_SELECT_START_TIME'), 'error');
         return false;
     }
     
     if (!endTime) {
-        showNotification('請選擇結束時間', 'error');
+        showNotification(t('NOTIF_SELECT_END_TIME'), 'error');
         return false;
     }
     
@@ -448,29 +448,29 @@ function validateLeaveForm() {
     const end = new Date(endTime);
     
     if (start.getMinutes() !== 0 || start.getSeconds() !== 0) {
-        showNotification('開始時間必須是整點（例如：09:00, 10:00）', 'error');
+        showNotification(t('NOTIF_START_TIME_ON_HOUR'), 'error');
         return false;
     }
     
     if (end.getMinutes() !== 0 || end.getSeconds() !== 0) {
-        showNotification('結束時間必須是整點（例如：09:00, 10:00）', 'error');
+        showNotification(t('NOTIF_END_TIME_ON_HOUR'), 'error');
         return false;
     }
     
     if (!reason.trim() || reason.trim().length < 2) {
-        showNotification('請填寫請假原因（至少2個字）', 'error');
+        showNotification(t('NOTIF_LEAVE_REASON_2'), 'error');
         return false;
     }
     
     const workHours = calculateWorkHours(startTime, endTime);
     
     if (workHours <= 0) {
-        showNotification('請假時數必須大於 0', 'error');
+        showNotification(t('NOTIF_LEAVE_HOURS_POSITIVE'), 'error');
         return false;
     }
     
     if (!Number.isInteger(workHours)) {
-        showNotification(`請假時數必須是整數小時，目前為 ${workHours} 小時`, 'error');
+        showNotification(t('NOTIF_LEAVE_HOURS_INTEGER', { hours: workHours }), 'error');
         return false;
     }
     
@@ -835,7 +835,7 @@ async function handleReviewLeave(button, action) {
         : '';
     
     if (action === 'reject' && !comment) {
-        showNotification('請輸入拒絕原因', 'warning');
+        showNotification(t('NOTIF_REJECT_REASON_REQUIRED'), 'warning');
         return;
     }
     
@@ -854,11 +854,11 @@ async function handleReviewLeave(button, action) {
             await new Promise(resolve => setTimeout(resolve, 500));
             loadPendingLeaveRequests();
         } else {
-            showNotification('審核失敗', 'error');
+            showNotification(t('NOTIF_REVIEW_FAILED'), 'error');
         }
     } catch (err) {
         console.error('審核請假失敗:', err);
-        showNotification('網路錯誤', 'error');
+        showNotification(t('NOTIF_NETWORK_ERROR'), 'error');
     } finally {
         button.disabled = false;
         button.textContent = action === 'approve' ? '核准' : '拒絕';

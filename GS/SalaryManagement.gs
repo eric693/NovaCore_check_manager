@@ -59,6 +59,20 @@ function isNationalHoliday(dateStr) {
   return TAIWAN_HOLIDAYS_2026.includes(dateStr);
 }
 
+/**
+ *  提供前端國定假日清單
+ *  前端原本只能靠星期判斷，落在平日的國定假日會被當成一般上班日，
+ *  加班時數因此算成 0；有了這份清單就能跟後端用同一套判斷。
+ * @returns {{ok: boolean, year: number, holidays: string[]}}
+ */
+function handleGetHolidays() {
+  return {
+    ok: true,
+    year: 2026,
+    holidays: TAIWAN_HOLIDAYS_2026
+  };
+}
+
 
 // 加班費率
 const OVERTIME_RATES = {

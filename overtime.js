@@ -20,11 +20,54 @@ async function initOvertimeTab() {
     // 載入員工的加班記錄
     await loadEmployeeOvertimeRecords();
     
+    // 國定假日清單（有快取，不會每次都打 API）
+    await loadNationalHolidays();
+    
     // 綁定申請表單提交事件
     bindOvertimeFormEvents();
 }
 
 const MAX_MONTHLY_OVERTIME = 46;      // 每月加班時數上限
+const HOLIDAY_CACHE_KEY = 'holidays_cache';
+const HOLIDAY_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 假日清單一天抓一次就夠
+
+// 國定假日清單由後端提供（GS/SalaryManagement.gs 的同一份），
+// 只靠星期判斷的話，落在平日的國定假日會被當成一般上班日，加班時數算成 0。
+let nationalHolidays = [];
+
+async function loadNationalHolidays() {
+    try {
+        const cached = JSON.parse(localStorage.getItem(HOLIDAY_CACHE_KEY) || 'null');
+        if (cached && Date.now() - cached.savedAt < HOLIDAY_CACHE_TTL_MS && Array.isArray(cached.holidays)) {
+            nationalHolidays = cached.holidays;
+            return;
+        }
+    } catch {}
+    
+    try {
+        const res = await callApifetch('getHolidays');
+        if (res.ok && Array.isArray(res.holidays)) {
+            nationalHolidays = res.holidays;
+            localStorage.setItem(HOLIDAY_CACHE_KEY, JSON.stringify({
+                savedAt: Date.now(),
+                holidays: res.holidays
+            }));
+        }
+    } catch (err) {
+        // 拿不到就退回只看星期，至少平日晚上的加班仍然算得出來
+        console.warn('取得國定假日清單失敗，改用星期判斷:', err);
+    }
+}
+
+/**
+ * 這一天是不是「整天都算加班」：國定假日、例假日（週日）、休息日（週六）
+ */
+function isFullDayOvertime(dateStr) {
+    if (!dateStr) return false;
+    if (nationalHolidays.includes(dateStr)) return true;
+    const day = new Date(`${dateStr}T00:00:00`).getDay();
+    return day === 0 || day === 6;
+}
 const OVERTIME_THRESHOLD_MIN = 19 * 60 + 30; // 加班起算：19:30（下班 19:00 + 30 分緩衝）
 const OVERTIME_UNIT_MIN = 30;                 // 每 30 分鐘計 0.5 小時
 
@@ -253,14 +296,7 @@ function bindOvertimeFormEvents() {
         const toMin = t => parseInt(t.split(':')[0]) * 60 + parseInt(t.split(':')[1]);
 
         // 平日是接在正常班之後加班，所以從 19:30 起算；
-        // 週末整天都算加班，要從實際開始時間算起，
-        // 原本只看結束時間，休息日早上開始加班會直接算成 0 小時。
-        const isRestDay = () => {
-            const value = dateInput && dateInput.value;
-            if (!value) return false;
-            const day = new Date(`${value}T00:00:00`).getDay();
-            return day === 0 || day === 6;
-        };
+        // 國定假日與週末整天都算加班，要從實際開始時間算起。
 
         const calculateHours = () => {
             const start = startTimeInput.value;
@@ -273,7 +309,8 @@ function bindOvertimeFormEvents() {
             if (endMin <= startMin) endMin += 24 * 60; // 跨夜加班
 
             // 起算點：休息日看開始時間，平日不早於 19:30
-            const beginMin = isRestDay() ? startMin : Math.max(startMin, OVERTIME_THRESHOLD_MIN);
+            const fullDay = isFullDayOvertime(dateInput && dateInput.value);
+            const beginMin = fullDay ? startMin : Math.max(startMin, OVERTIME_THRESHOLD_MIN);
             const hours = endMin <= beginMin
                 ? 0
                 : Math.ceil((endMin - beginMin) / OVERTIME_UNIT_MIN) * 0.5;
@@ -482,12 +519,12 @@ function showCompensatoryHoursInput(currentHours, requestHours, exceededHours) {
         const compensatoryHours = parseFloat(document.getElementById('compensatory-hours').value) || 0;
         
         if (compensatoryHours < 0) {
-            showNotification('補休時數不可為負數', 'error');
+            showNotification(t('NOTIF_COMP_HOURS_NEGATIVE'), 'error');
             return;
         }
         
         if (compensatoryHours > exceededHours) {
-            showNotification(`補休時數不可超過 ${exceededHours.toFixed(1)} 小時`, 'error');
+            showNotification(t('NOTIF_COMP_HOURS_EXCEED', { hours: exceededHours.toFixed(1) }), 'error');
             return;
         }
         
@@ -700,29 +737,7 @@ async function handleOvertimeReview(button, action) {
  * @param {string} state - 'processing' 或 'idle'
  * @param {string} loadingText - 處理中顯示的文字
  */
-function generalButtonState(button, state, loadingText = '處理中...') {
-    if (!button) return;
-    const loadingClasses = 'opacity-50 cursor-not-allowed';
-
-    if (state === 'processing') {
-        // 進入處理中狀態
-        button.dataset.originalText = button.textContent;
-        button.dataset.loadingClasses = loadingClasses;
-        button.disabled = true;
-        button.textContent = loadingText;
-        button.classList.add(...loadingClasses.split(' '));
-    } else {
-        // 恢復到原始狀態
-        if (button.dataset.loadingClasses) {
-            button.classList.remove(...button.dataset.loadingClasses.split(' '));
-        }
-        button.disabled = false;
-        if (button.dataset.originalText) {
-            button.textContent = button.dataset.originalText;
-            delete button.dataset.originalText;
-        }
-    }
-}
+// generalButtonState 已移到 utils.js
 
 /**
  *  快速申請加班（從每日記錄觸發）

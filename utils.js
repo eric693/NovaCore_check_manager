@@ -68,3 +68,32 @@ function escapeJsAttr(value) {
         .replace(/\r?\n/g, '\\n');
     return escapeHtml(js);
 }
+
+/**
+ * 按鈕的處理中／閒置狀態切換。
+ * 原本 overtime.js 與 script.js 各有一份，而 script.js 裡那份宣告在
+ * DOMContentLoaded 內，檔案層級的 doPunch()、匯出函式其實是用到 overtime.js 的版本，
+ * 也就是 salary.html（沒載 overtime.js）一按就會 ReferenceError。統一放這裡。
+ */
+function generalButtonState(button, state, loadingText) {
+    if (!button) return;
+    const loadingClasses = 'opacity-50 cursor-not-allowed';
+    const text = loadingText || (typeof t === 'function' ? t('NOTIF_PROCESSING') : '處理中...');
+
+    if (state === 'processing') {
+        button.dataset.originalText = button.textContent;
+        button.dataset.loadingClasses = loadingClasses;
+        button.disabled = true;
+        button.textContent = text;
+        button.classList.add(...loadingClasses.split(' '));
+    } else {
+        if (button.dataset.loadingClasses) {
+            button.classList.remove(...button.dataset.loadingClasses.split(' '));
+        }
+        button.disabled = false;
+        if (button.dataset.originalText) {
+            button.textContent = button.dataset.originalText;
+            delete button.dataset.originalText;
+        }
+    }
+}

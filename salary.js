@@ -854,15 +854,15 @@ async function handleSalaryConfigSubmit(e) {
     }
     
     if (salaryType === '月薪' && baseSalary <= 0) {
-        showNotification('月薪的基本薪資必須大於 0', 'error');
+        showNotification(t('NOTIF_BASE_SALARY_POSITIVE'), 'error');
         return;
     }
     if (salaryType === '時薪' && (isNaN(baseSalary) || baseSalary <= 0)) {
-        showNotification('請輸入有效的時薪（必須大於 0）', 'error');
+        showNotification(t('NOTIF_HOURLY_RATE_POSITIVE'), 'error');
         return;
     }
     if (salaryType === '週薪' && (isNaN(baseSalary) || baseSalary <= 0)) {
-        showNotification('請輸入每週薪資金額（必須大於 0）', 'error');
+        showNotification(t('NOTIF_WEEKLY_SALARY_POSITIVE'), 'error');
         return;
     }
 
@@ -1895,13 +1895,13 @@ async function exportAllSalaryExcel() {
         const yearMonth = yearMonthEl ? yearMonthEl.value : '';
         
         if (!yearMonth) {
-            showNotification('請先選擇要匯出的月份', 'error');
+            showNotification(t('NOTIF_SELECT_MONTH_EXPORT'), 'error');
             return;
         }
         
         const token = localStorage.getItem('sessionToken');
         if (!token) {
-            showNotification('請先登入', 'error');
+            showNotification(t('NOTIF_LOGIN_REQUIRED'), 'error');
             return;
         }
         
@@ -1954,7 +1954,7 @@ async function exportAllSalaryExcel() {
     } catch (error) {
         hideExportProgress();
         console.error(' 匯出失敗:', error);
-        showNotification('匯出失敗: ' + error.message, 'error');
+        showNotification(t('NOTIF_EXPORT_FAILED_MSG') + error.message, 'error');
     }
 }
 
@@ -2217,7 +2217,7 @@ async function submitBonusRecord() {
     const note = document.getElementById('bonus-note')?.value?.trim() || '';
 
     if (!employeeId || !bonusType || !year || amount <= 0) {
-        showNotification('請填寫員工、獎金類型、年度與金額', 'error');
+        showNotification(t('NOTIF_BONUS_FIELDS_REQUIRED'), 'error');
         return;
     }
 
@@ -2226,7 +2226,7 @@ async function submitBonusRecord() {
     const dept = empOpt?.dataset?.dept || '';
 
     try {
-        showNotification('儲存中...', 'info');
+        showNotification(t('NOTIF_SAVING'), 'info');
         const qs = 'employeeId=' + encodeURIComponent(employeeId)
                  + '&employeeName=' + encodeURIComponent(employeeName)
                  + '&dept=' + encodeURIComponent(dept)
@@ -2238,13 +2238,13 @@ async function submitBonusRecord() {
                  + '&note=' + encodeURIComponent(note);
         const res = await callApifetch('setBonusRecord&' + qs);
         if (res.ok) {
-            showNotification('獎金記錄已儲存！', 'success');
+            showNotification(t('NOTIF_BONUS_SAVED'), 'success');
             loadBonusRecords();
         } else {
-            showNotification('儲存失敗: ' + (res.msg || '未知錯誤'), 'error');
+            showNotification(t('NOTIF_SAVE_FAILED_MSG') + (res.msg || '未知錯誤'), 'error');
         }
     } catch (e) {
         console.error('submitBonusRecord 錯誤:', e);
-        showNotification('儲存失敗', 'error');
+        showNotification(t('NOTIF_SAVE_FAILED'), 'error');
     }
 }

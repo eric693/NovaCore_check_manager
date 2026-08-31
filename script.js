@@ -7,6 +7,15 @@ let userId = localStorage.getItem("sessionUserId");
 let todayShiftCache = null; // 快取今日排班
 let weekShiftCache = null;  // 快取本週排班
 let _isPunching = false; 
+// 地圖狀態（定位分頁的地圖、標記、範圍圈與地點圖層）
+// 檔案層級的函式也會存取，所以不能宣告在 DOMContentLoaded 裡面
+let mapInstance = null;
+let mapLoadingText = null;
+let currentCoords = null;
+let marker = null;
+let circle = null;
+let locationMarkers = null;  // Leaflet 延遲載入，用到時才建立
+let locationCircles = null;
 // 語系相關（translations / currentLang / t / loadTranslations / renderTranslations）
 // 已抽到共用的 i18n.js，請確保它在本檔之前載入。
 
@@ -107,248 +116,7 @@ async function callApifetch(action, loadingId = "loading") {
 
 // ====================  管理員匯出所有員工報表功能 ====================
 
-/**
- * 管理員匯出所有員工的出勤報表
- * @param {string} monthKey - 月份，格式: "YYYY-MM"
- */
-async function exportAllEmployeesReport(monthKey) {
-    await ensureLib('xlsx'); // 匯出時才載入 SheetJS
-    const exportBtn = document.getElementById('admin-export-all-btn');
-    const loadingText = t('EXPORT_LOADING') || '正在準備報表...';
-    
-    showNotification(loadingText, 'warning');
-    
-    if (exportBtn) {
-        generalButtonState(exportBtn, 'processing', loadingText);
-    }
-    
-    try {
-        // 呼叫 API 取得所有員工的出勤資料（不傳 userId）
-        const res = await callApifetch(`getAttendanceDetails&month=${monthKey}`);
-        
-        if (!res.ok || !res.records || res.records.length === 0) {
-            showNotification(t('EXPORT_NO_DATA') || '本月沒有出勤記錄', 'warning');
-            return;
-        }
-        
-        //  修正：先檢查資料結構
-        console.log('API 回傳的資料:', res.records[0]); // 除錯用
-        
-        // 按員工分組
-        const employeeData = {};
-        
-        res.records.forEach(record => {
-            //  修正：確保正確讀取 userId 和 name
-            const userId = record.userId || 'unknown';
-            const userName = record.name || '未知員工';
-            
-            if (!employeeData[userId]) {
-                employeeData[userId] = {
-                    name: userName,
-                    records: []
-                };
-            }
-            
-            // 找出上班和下班的記錄
-            const punchIn = record.record ? record.record.find(r => r.type === '上班') : null;
-            const punchOut = record.record ? record.record.find(r => r.type === '下班') : null;
-            
-            // 計算工時
-            let workHours = '-';
-            if (punchIn && punchOut) {
-                try {
-                    const inTime = new Date(`${record.date} ${punchIn.time}`);
-                    const outTime = new Date(`${record.date} ${punchOut.time}`);
-                    const diffMs = outTime - inTime;
-                    const diffHours = (diffMs / (1000 * 60 * 60)).toFixed(2);
-                    workHours = diffHours > 0 ? diffHours : '-';
-                } catch (e) {
-                    console.error('計算工時失敗:', e);
-                    workHours = '-';
-                }
-            }
-            
-            const statusText = t(record.reason) || record.reason;
-            
-            const notes = record.record
-                ? record.record
-                    .filter(r => r.note && r.note !== '系統虛擬卡')
-                    .map(r => r.note)
-                    .join('; ')
-                : '';
-            
-            employeeData[userId].records.push({
-                '日期': record.date,
-                '上班時間': punchIn?.time || '-',
-                '上班地點': punchIn?.location || '-',
-                '下班時間': punchOut?.time || '-',
-                '下班地點': punchOut?.location || '-',
-                '工作時數': workHours,
-                '狀態': statusText,
-                '備註': notes || '-'
-            });
-        });
-        
-        // 建立工作簿
-        const wb = XLSX.utils.book_new();
-        
-        // 為每位員工建立一個工作表
-        for (const userId in employeeData) {
-            const employee = employeeData[userId];
-            const ws = XLSX.utils.json_to_sheet(employee.records);
-            
-            const wscols = [
-                { wch: 12 },  // 日期
-                { wch: 10 },  // 上班時間
-                { wch: 20 },  // 上班地點
-                { wch: 10 },  // 下班時間
-                { wch: 20 },  // 下班地點
-                { wch: 10 },  // 工作時數
-                { wch: 15 },  // 狀態
-                { wch: 30 }   // 備註
-            ];
-            ws['!cols'] = wscols;
-            
-            const sheetName = employee.name.substring(0, 31);
-            XLSX.utils.book_append_sheet(wb, ws, sheetName);
-        }
-        
-        const [year, month] = monthKey.split('-');
-        const fileName = `所有員工出勤記錄_${year}年${month}月.xlsx`;
-        XLSX.writeFile(wb, fileName);
-        
-        showNotification(t('EXPORT_SUCCESS') || '報表已成功匯出！', 'success');
-        
-    } catch (error) {
-        console.error('匯出失敗:', error);
-        showNotification(t('EXPORT_FAILED') || '匯出失敗，請稍後再試', 'error');
-        
-    } finally {
-        if (exportBtn) {
-            generalButtonState(exportBtn, 'idle');
-        }
-    }
-}
-
-// ====================  管理員匯出功能結束 ====================
-
-// ====================  匯出出勤報表功能 ====================
-
-/**
- * 匯出指定月份的出勤報表為 Excel 檔案
- * @param {Date} date - 要匯出的月份日期物件
- */
-async function exportAttendanceReport(date) {
-    await ensureLib('xlsx'); // 匯出時才載入 SheetJS
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    const monthKey = `${year}-${String(month).padStart(2, '0')}`;
-    const userId = localStorage.getItem("sessionUserId");
-    
-    // 取得匯出按鈕
-    const exportBtn = document.getElementById('export-attendance-btn');
-    const loadingText = t('EXPORT_LOADING') || '正在準備報表...';
-    
-    // 顯示載入提示
-    showNotification(loadingText, 'warning');
-    
-    // 按鈕進入處理中狀態
-    if (exportBtn) {
-        generalButtonState(exportBtn, 'processing', loadingText);
-    }
-    
-    try {
-        // 呼叫 API 取得出勤資料
-        const res = await callApifetch(`getAttendanceDetails&month=${monthKey}&userId=${userId}`);
-        
-        if (!res.ok || !res.records || res.records.length === 0) {
-            showNotification(t('EXPORT_NO_DATA') || '本月沒有出勤記錄', 'warning');
-            return;
-        }
-        
-        // 整理資料為 Excel 格式
-        const exportData = [];
-        
-        res.records.forEach(record => {
-            // 找出上班和下班的記錄
-            const punchIn = record.record.find(r => r.type === '上班');
-            const punchOut = record.record.find(r => r.type === '下班');
-            
-            // 計算工時
-            let workHours = '-';
-            if (punchIn && punchOut) {
-                try {
-                    const inTime = new Date(`${record.date} ${punchIn.time}`);
-                    const outTime = new Date(`${record.date} ${punchOut.time}`);
-                    const diffMs = outTime - inTime;
-                    const diffHours = (diffMs / (1000 * 60 * 60)).toFixed(2);
-                    workHours = diffHours > 0 ? diffHours : '-';
-                } catch (e) {
-                    console.error('計算工時失敗:', e);
-                    workHours = '-';
-                }
-            }
-            
-            // 翻譯狀態
-            const statusText = t(record.reason) || record.reason;
-            
-            // 處理備註
-            const notes = record.record
-                .filter(r => r.note && r.note !== '系統虛擬卡')
-                .map(r => r.note)
-                .join('; ');
-            
-            exportData.push({
-                '日期': record.date,
-                '上班時間': punchIn?.time || '-',
-                '上班地點': punchIn?.location || '-',
-                '下班時間': punchOut?.time || '-',
-                '下班地點': punchOut?.location || '-',
-                '工作時數': workHours,
-                '狀態': statusText,
-                '備註': notes || '-'
-            });
-        });
-        
-        // 使用 SheetJS 建立 Excel 檔案
-        const ws = XLSX.utils.json_to_sheet(exportData);
-        
-        // 設定欄位寬度
-        const wscols = [
-            { wch: 12 },  // 日期
-            { wch: 10 },  // 上班時間
-            { wch: 20 },  // 上班地點
-            { wch: 10 },  // 下班時間
-            { wch: 20 },  // 下班地點
-            { wch: 10 },  // 工作時數
-            { wch: 15 },  // 狀態
-            { wch: 30 }   // 備註
-        ];
-        ws['!cols'] = wscols;
-        
-        // 建立工作簿
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, `${month}月出勤記錄`);
-        
-        // 下載檔案
-        const fileName = `出勤記錄_${year}年${month}月.xlsx`;
-        XLSX.writeFile(wb, fileName);
-        
-        showNotification(t('EXPORT_SUCCESS') || '報表已成功匯出！', 'success');
-        
-    } catch (error) {
-        console.error('匯出失敗:', error);
-        showNotification(t('EXPORT_FAILED') || '匯出失敗，請稍後再試', 'error');
-        
-    } finally {
-        // 恢復按鈕狀態
-        if (exportBtn) {
-            generalButtonState(exportBtn, 'idle');
-        }
-    }
-}
-
-// ====================  匯出功能結束 ====================
+// 已移到 reports.js
 
 /* ===== 共用訊息顯示 ===== */
 const showNotification = (message, type = 'success') => {
@@ -480,7 +248,7 @@ async function checkSessionInBackground(token) {
         console.log(' Session 已失效');
         localStorage.removeItem("cachedUser");
         localStorage.removeItem("cacheTime");
-        showNotification('登入已過期，請重新登入', 'warning');
+        showNotification(t('NOTIF_SESSION_EXPIRED'), 'warning');
         
         setTimeout(() => {
           showLoginUI();
@@ -1062,7 +830,7 @@ function formatHours(hours) {
 
 async function submitAdjustPunch(date, type, note) {
     try {
-        showNotification("正在提交補打卡...", "info");
+        showNotification(t('NOTIF_SUBMITTING_ADJUST'), "info");
 
         const sessionToken = localStorage.getItem("sessionToken");
 
@@ -1092,7 +860,7 @@ async function submitAdjustPunch(date, type, note) {
         if (res.ok) clearMonthDataCache(); // 補打卡送出後，快取的月資料已過期
         
         if (res.ok) {
-            showNotification("補打卡申請成功！等待管理員審核", "success");
+            showNotification(t('NOTIF_ADJUST_PUNCH_SUBMITTED'), "success");
             
             //  關鍵：補打卡成功後，重新檢查異常記錄
             await checkAbnormal();
@@ -1104,7 +872,7 @@ async function submitAdjustPunch(date, type, note) {
         }
     } catch (err) {
         console.error('補打卡錯誤:', err);
-        showNotification("補打卡失敗", "error");
+        showNotification(t('NOTIF_ADJUST_PUNCH_FAILED'), "error");
     }
 }
 
@@ -1247,7 +1015,7 @@ async function renderDailyRecords(dateKey) {
     
     if (!dailyRecordsCard || !dailyRecordsTitle || !dailyRecordsList || !dailyRecordsEmpty) {
         console.error(' renderDailyRecords: 找不到必要的 DOM 元素');
-        showNotification('介面元素載入失敗，請重新整理頁面', 'error');
+        showNotification(t('NOTIF_UI_LOAD_FAILED'), 'error');
         return;
     }
     
@@ -1508,200 +1276,8 @@ async function renderDailyRecords(dateKey) {
     }
 }
 
-// ==================== 地點搜尋功能 ====================
+// 已移到 location-picker.js
 
-/**
- * 使用 Nominatim API 搜尋地點
- */
-async function searchLocation(query) {
-    if (!query || query.trim() === '') {
-        return [];
-    }
-    
-    // 先限定台灣搜尋（門牌與路段的命中率較高），沒有結果再放寬到全球
-    const request = async (countryCode) => {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`
-            + `&limit=5&accept-language=zh-TW${countryCode ? '&countrycodes=' + countryCode : ''}`;
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('搜尋失敗');
-        return await response.json();
-    };
-    
-    try {
-        let results = await request('tw');
-        if (!results.length) results = await request('');
-        return results;
-        
-    } catch (error) {
-        console.error('地點搜尋錯誤:', error);
-        showNotification('搜尋失敗，請檢查網路連線', 'error');
-        return [];
-    }
-}
-
-/**
- * 顯示搜尋結果
- */
-function displaySearchResults(results) {
-    const resultsList = document.getElementById('search-results-list');
-    const resultsContainer = document.getElementById('search-results');
-    
-    if (!resultsList || !resultsContainer) return;
-    
-    resultsList.innerHTML = '';
-    
-    if (results.length === 0) {
-        resultsContainer.classList.add('hidden');
-        showNotification('找不到相關地點', 'warning');
-        return;
-    }
-    
-    resultsContainer.classList.remove('hidden');
-    
-    results.forEach(result => {
-        const li = document.createElement('li');
-        li.className = 'text-sm text-gray-800 dark:text-gray-200';
-        li.innerHTML = `
-            <div class="font-semibold">${escapeHtml(result.display_name)}</div>
-            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                ${parseFloat(result.lat).toFixed(6)}, ${parseFloat(result.lon).toFixed(6)}
-            </div>
-        `;
-        
-        li.addEventListener('click', () => {
-            selectSearchResult(result);
-        });
-        
-        resultsList.appendChild(li);
-    });
-}
-
-/**
- * 選擇搜尋結果
- */
-function selectSearchResult(result) {
-    const nameInput = document.getElementById('location-name');
-    const latInput = document.getElementById('location-lat');
-    const lngInput = document.getElementById('location-lng');
-    const addBtn = document.getElementById('add-location-btn');
-    const resultsContainer = document.getElementById('search-results');
-    
-    if (nameInput) nameInput.value = result.display_name.split(',')[0].trim();
-    if (latInput) latInput.value = parseFloat(result.lat).toFixed(6);
-    if (lngInput) lngInput.value = parseFloat(result.lon).toFixed(6);
-    if (addBtn) addBtn.disabled = false;
-    if (resultsContainer) resultsContainer.classList.add('hidden');
-    
-    // 在下方小地圖標出這個點，之後可以拖曳微調
-    setPickerLocation(parseFloat(result.lat), parseFloat(result.lon));
-    
-    showNotification('已選擇地點，可拖曳地圖標記微調位置', 'success');
-}
-
-// ==================== 打卡地點選取器（可拖曳微調） ====================
-// 搜尋回來的座標是建物或路段中心，跟實際打卡的門口常差數十公尺，
-// 所以在「新增打卡地點」表單裡放一張小地圖，標記可以拖，圓圈即時跟著半徑走。
-
-let pickerMap = null;
-let pickerMarker = null;
-let pickerCircle = null;
-
-function pickerRadius() {
-    const slider = document.getElementById('location-radius');
-    return slider ? parseInt(slider.value) : 200;
-}
-
-// 把座標寫回表單欄位
-function writePickedCoords(lat, lng) {
-    const latInput = document.getElementById('location-lat');
-    const lngInput = document.getElementById('location-lng');
-    const addBtn = document.getElementById('add-location-btn');
-    if (latInput) latInput.value = lat.toFixed(6);
-    if (lngInput) lngInput.value = lng.toFixed(6);
-    if (addBtn) addBtn.disabled = false;
-}
-
-/**
- * 在選取器地圖上標出座標；地圖第一次用到時才建立。
- */
-async function setPickerLocation(lat, lng) {
-    writePickedCoords(lat, lng);
-    
-    const el = document.getElementById('location-picker-map');
-    if (!el) return;
-    
-    try {
-        await ensureLib('leaflet');
-    } catch (err) {
-        console.error('地圖載入失敗:', err);
-        return;
-    }
-    
-    const coords = [lat, lng];
-    const radius = pickerRadius();
-    
-    if (!pickerMap) {
-        el.innerHTML = '';
-        el.classList.remove('flex', 'items-center', 'justify-center');
-        pickerMap = L.map(el).setView(coords, 18);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap'
-        }).addTo(pickerMap);
-        
-        pickerMarker = L.marker(coords, { draggable: true }).addTo(pickerMap);
-        pickerCircle = L.circle(coords, {
-            color: 'blue', fillColor: '#30f', fillOpacity: 0.2, radius: radius
-        }).addTo(pickerMap);
-        
-        // 拖曳結束就把新座標寫回欄位，圓圈也跟著移動
-        pickerMarker.on('drag', (e) => pickerCircle.setLatLng(e.target.getLatLng()));
-        pickerMarker.on('dragend', (e) => {
-            const p = e.target.getLatLng();
-            writePickedCoords(p.lat, p.lng);
-            showNotification(`已微調至 ${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}`, 'success');
-        });
-        // 點地圖也能直接改點位
-        pickerMap.on('click', (e) => setPickerLocation(e.latlng.lat, e.latlng.lng));
-        
-        setTimeout(() => pickerMap.invalidateSize(), 100);
-    } else {
-        pickerMap.setView(coords, Math.max(pickerMap.getZoom(), 17));
-        pickerMarker.setLatLng(coords);
-        pickerCircle.setLatLng(coords).setRadius(radius);
-    }
-}
-
-// 分頁切回管理員時，地圖是在隱藏狀態下建立的話尺寸會歪掉
-function refreshLocationPicker() {
-    if (pickerMap) setTimeout(() => pickerMap.invalidateSize(), 100);
-}
-
-// ==================== 範圍調整拉桿 ====================
-
-/**
- * 初始化範圍拉桿
- */
-function initRadiusSlider() {
-    const slider = document.getElementById('location-radius');
-    const valueDisplay = document.getElementById('radius-value');
-    
-    if (!slider || !valueDisplay) return;
-    
-    slider.addEventListener('input', (e) => {
-        const value = e.target.value;
-        valueDisplay.textContent = value;
-        
-        //  修正：先檢查 circle 是否存在
-        if (circle && currentCoords) {
-            circle.setRadius(parseInt(value));
-        }
-        
-        // 新增打卡地點的選取器地圖也要跟著改
-        if (pickerCircle) {
-            pickerCircle.setRadius(parseInt(value));
-        }
-    });
-}
 document.addEventListener('DOMContentLoaded', async () => {
     
     const loginBtn = document.getElementById('login-btn');
@@ -1752,19 +1328,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     let pendingRequests = []; // 新增：用於快取待審核的請求
     
-    // 全域變數，用於儲存地圖實例
-    let mapInstance = null;
-    let mapLoadingText = null;
-    let currentCoords = null;
-    let marker = null;
-    let circle = null;
+    // 地圖狀態改宣告在檔案最上方（見 mapInstance 等）：
+    // 這些變數原本宣告在這個 DOMContentLoaded 區塊內，但 initRadiusSlider、
+    // selectSearchResult 這些「檔案層級」的函式也會用到，呼叫時會直接 ReferenceError。
     /**
      * 從後端取得所有打卡地點，並將它們顯示在地圖上。
      */
     // 全域變數，用於儲存地點標記和圓形
-    // Leaflet 改成延遲載入，所以圖層群組不能在這裡就建立
-    let locationMarkers = null;
-    let locationCircles = null;
+    // Leaflet 改成延遲載入，所以圖層群組不能在這裡就建立（宣告見檔案上方）
     
     /**
      * 取得並渲染所有待審核的請求。
@@ -1790,11 +1361,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     renderReviewRequests(pendingRequests);
                 }
             } else {
-                showNotification("取得待審核請求失敗：" + res.msg, "error");
+                showNotification(t('NOTIF_REQUESTS_FAILED_MSG') + res.msg, "error");
                 emptyEl.style.display = 'block';
             }
         } catch (error) {
-            showNotification("取得待審核請求失敗，請檢查網路。", "error");
+            showNotification(t('NOTIF_REQUESTS_FAILED_NET'), "error");
             emptyEl.style.display = 'block';
             console.error("Failed to fetch review requests:", error);
         } finally {
@@ -1884,7 +1455,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function handleReviewAction(button, index, action) {
         const request = pendingRequests[index];
         if (!request) {
-            showNotification("找不到請求資料。", "error");
+            showNotification(t('NOTIF_REQUEST_NOT_FOUND'), "error");
             return;
         }
 
@@ -1963,11 +1534,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
                 console.log("地點標記和範圍已成功載入地圖。");
             } else {
-                showNotification("取得地點清單失敗：" + res.msg, "error");
+                showNotification(t('NOTIF_LOCATIONS_FAILED_MSG') + res.msg, "error");
                 console.error("Failed to fetch locations:", res.msg);
             }
         } catch (error) {
-            showNotification("取得地點清單失敗，請檢查網路。", "error");
+            showNotification(t('NOTIF_LOCATIONS_FAILED_NET'), "error");
             console.error("Failed to fetch locations:", error);
         }
     }
@@ -2064,7 +1635,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                                                  message = t('ERROR_GEOLOCATION_UNKNOWN');
                                                                  break;
                                                          }
-                                                         showNotification(`定位失敗：${message}`, "error");
+                                                         showNotification(t('NOTIF_LOCATION_FAILED_MSG', { msg: message }), "error");
                                                      }
                                                      );
             // 成功取得使用者位置後，載入所有打卡地點
@@ -2087,15 +1658,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             // 檢查 API 回應中的 'ok' 屬性
             if (res && res.ok) {
-                showNotification("API 測試成功！回應：" + JSON.stringify(res), "success");
+                showNotification(t('NOTIF_API_TEST_OK') + JSON.stringify(res), "success");
             } else {
                 // 如果 res.ok 為 false，表示後端處理失敗
-                showNotification("API 測試失敗：" + (res ? res.msg : "無回應資料"), "error");
+                showNotification(t('NOTIF_API_TEST_FAILED') + (res ? res.msg : "無回應資料"), "error");
             }
         } catch (error) {
             // 捕捉任何在 callApifetch 函式中拋出的錯誤（例如網路連線問題）
             console.error("API 呼叫發生錯誤:", error);
-            showNotification("API 呼叫失敗，請檢查網路連線或後端服務。", "error");
+            showNotification(t('NOTIF_API_FAILED'), "error");
         }
     });
     
@@ -2147,7 +1718,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
             
-            showNotification('位置已成功取得！', 'success');
+            showNotification(t('NOTIF_LOCATION_OK'), 'success');
         }, (err) => {
             showNotification(t("ERROR_GEOLOCATION", { msg: err.message }), "error");
             getLocationBtn.textContent = '取得當前位置';
@@ -2162,7 +1733,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const radius = document.getElementById('location-radius').value; // 新增
         
         if (!name || !lat || !lng) {
-            showNotification("請填寫所有欄位並取得位置", "error");
+            showNotification(t('NOTIF_FILL_ALL_AND_LOCATION'), "error");
             return;
         }
         
@@ -2170,7 +1741,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // 加入 radius 參數
             const res = await callApifetch(`addLocation&name=${encodeURIComponent(name)}&lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}&radius=${radius}`);
             if (res.ok) {
-                showNotification("地點新增成功！", "success");
+                showNotification(t('NOTIF_LOCATION_ADDED'), "success");
                 
                 // 清空輸入欄位
                 document.getElementById('location-name').value = '';
@@ -2191,7 +1762,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     circle = null;
                 }
             } else {
-                showNotification("新增地點失敗：" + res.msg, "error");
+                showNotification(t('NOTIF_ADD_LOCATION_FAILED_MSG') + res.msg, "error");
             }
         } catch (err) {
             console.error(err);
@@ -2416,48 +1987,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     
     /* ===== 打卡功能 ===== */
-    function generalButtonState(button, state, loadingText = '處理中...') {
-        if (!button) return;
-        const loadingClasses = 'opacity-50 cursor-not-allowed';
-
-        if (state === 'processing') {
-            // --- 進入處理中狀態 ---
-            
-            // 1. 儲存原始文本 (用於恢復)
-            button.dataset.originalText = button.textContent;
-            
-            // 2. 儲存原始類別 (用於恢復樣式)
-            // 這是為了在恢復時移除我們為了禁用而添加的類別
-            button.dataset.loadingClasses = 'opacity-50 cursor-not-allowed';
-
-            // 3. 禁用並設置處理中文字
-            button.disabled = true;
-            button.textContent = loadingText; // 使用傳入的 loadingText
-            
-            // 4. 添加視覺反饋 (禁用時的樣式)
-            button.classList.add(...loadingClasses.split(' '));
-            
-            // 可選：移除 hover 效果，防止滑鼠移動時顏色變化
-            // 假設您的按鈕有 hover:opacity-100 之類的類別，這裡需要調整
-            
-        } else {
-            // --- 恢復到原始狀態 ---
-            
-            // 1. 移除視覺反饋
-            if (button.dataset.loadingClasses) {
-                button.classList.remove(...button.dataset.loadingClasses.split(' '));
-            }
-
-            // 2. 恢復禁用狀態
-            button.disabled = false;
-            
-            // 3. 恢復原始文本
-            if (button.dataset.originalText) {
-                button.textContent = button.dataset.originalText;
-                delete button.dataset.originalText; // 清除儲存，讓它在下一次點擊時再次儲存
-            }
-        }
-    }
+    // generalButtonState 已移到 utils.js
 
         /**
      * 輔助函數：計算時間差（分鐘）
@@ -2610,7 +2140,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const date = button.dataset.date;
             
             if (!datetime) {
-                showNotification("請選擇補打卡日期時間", "error");
+                showNotification(t('NOTIF_SELECT_ADJUST_DATETIME'), "error");
                 return;
             }
             
@@ -2656,7 +2186,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
                 
                 if (res.ok) {
-                    showNotification("補打卡申請成功！等待管理員審核", "success");
+                    showNotification(t('NOTIF_ADJUST_PUNCH_SUBMITTED'), "success");
                     await checkAbnormal();
                     adjustmentFormContainer.innerHTML = '';
                 } else {
@@ -2665,7 +2195,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
             } catch (err) {
                 console.error('補打卡錯誤:', err);
-                showNotification("補打卡失敗", "error");
+                showNotification(t('NOTIF_ADJUST_PUNCH_FAILED'), "error");
                 
             } finally {
                 if (adjustmentFormContainer.innerHTML !== '') {
@@ -2782,7 +2312,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const selectedMonth = adminExportMonthInput.value;
             
             if (!selectedMonth) {
-                showNotification('請選擇要匯出的月份', 'error');
+                showNotification(t('NOTIF_SELECT_EXPORT_MONTH'), 'error');
                 return;
             }
             
@@ -2819,7 +2349,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const priority = document.getElementById('announcement-priority').value;
             
             if (!title || !content) {
-                showNotification('請填寫標題和內容', 'error');
+                showNotification(t('NOTIF_TITLE_CONTENT_REQUIRED'), 'error');
                 return;
             }
             
@@ -2833,7 +2363,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     document.getElementById('announcement-content').value = '';
                     document.getElementById('announcement-priority').value = 'normal';
                     
-                    showNotification('公告發布成功！', 'success');
+                    showNotification(t('NOTIF_ANNOUNCE_OK'), 'success');
                     
                     // 重新載入公告列表
                     await displayAdminAnnouncements();
@@ -2844,7 +2374,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
             } catch (error) {
                 console.error('發布公告失敗:', error);
-                showNotification('發布失敗', 'error');
+                showNotification(t('NOTIF_PUBLISH_FAILED'), 'error');
             }
         });
     }
@@ -3163,460 +2693,10 @@ function deleteAnnouncement(id) {
     showNotification(t('ANNOUNCEMENT_DELETED'), 'success');
 }
 
-// ==================== 管理員打卡分析功能 ====================
+// 已移到 analytics.js
 
-let workHoursChart = null;
-let punchTimeChart = null;
+// 已移到 reports.js
 
-/**
- * 初始化管理員分析功能
- */
-async function initAdminAnalysis() {
-    await loadEmployeeListForAnalysis();
-    
-    //  新增：為工作日誌匯出載入員工列表
-    const worklogExportSelect = document.getElementById('worklog-export-employee');
-    if (worklogExportSelect) {
-        try {
-            const res = await callApifetch('getAllUsers');
-            
-            if (res.ok && res.users) {
-                //  清空現有選項
-                worklogExportSelect.innerHTML = '';
-                
-                //  加入「請選擇員工」
-                const defaultOption = document.createElement('option');
-                defaultOption.value = '';
-                defaultOption.textContent = '-- 請選擇員工 --';
-                worklogExportSelect.appendChild(defaultOption);
-                
-                //  加入「全部員工」選項
-                const allOption = document.createElement('option');
-                allOption.value = 'ALL';
-                allOption.textContent = '全部員工';
-                worklogExportSelect.appendChild(allOption);
-                
-                //  加入每個員工
-                res.users.forEach(user => {
-                    const option = document.createElement('option');
-                    option.value = user.userId;
-                    option.textContent = `${user.name} (${user.dept || '未分類'})`;
-                    worklogExportSelect.appendChild(option);
-                });
-                
-                console.log(' 工作日誌匯出員工選單載入成功');
-            }
-        } catch (error) {
-            console.error(' 載入員工列表失敗:', error);
-        }
-    }
-    
-    // 設定預設月份
-    const now = new Date();
-    const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    
-    const monthInput = document.getElementById('analysis-month');
-    if (monthInput) {
-        monthInput.value = defaultMonth;
-    }
-    
-    const worklogMonthInput = document.getElementById('worklog-export-month');
-    if (worklogMonthInput) {
-        worklogMonthInput.value = defaultMonth;
-    }
-}
-/**
- * 載入員工列表到下拉選單
- */
-async function loadEmployeeListForAnalysis() {
-    try {
-        const res = await callApifetch('getAllUsers');
-        
-        if (res.ok && res.users) {
-            const select = document.getElementById('analysis-employee');
-            if (!select) return;
-            
-            select.innerHTML = '<option value="">請選擇員工</option>';
-            
-            res.users.forEach(user => {
-                const option = document.createElement('option');
-                option.value = user.userId;
-                option.textContent = `${user.name} (${user.dept || '未分類'})`;
-                select.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('載入員工列表失敗:', error);
-    }
-}
-
-/**
- * 載入打卡分析資料並繪製圖表
- */
-async function loadPunchAnalysis() {
-    const employeeId = document.getElementById('analysis-employee')?.value;
-    const yearMonth = document.getElementById('analysis-month')?.value;
-    
-    if (!employeeId) {
-        showNotification('請選擇員工', 'error');
-        return;
-    }
-    
-    if (!yearMonth) {
-        showNotification('請選擇月份', 'error');
-        return;
-    }
-    
-    const loadingEl = document.getElementById('punch-analysis-loading');
-    const containerEl = document.getElementById('punch-analysis-container');
-    const emptyEl = document.getElementById('punch-analysis-empty');
-    
-    try {
-        if (loadingEl) loadingEl.style.display = 'block';
-        if (containerEl) containerEl.style.display = 'none';
-        if (emptyEl) emptyEl.style.display = 'none';
-        
-        const res = await callApifetch(`getEmployeeMonthlyPunchData&employeeId=${employeeId}&yearMonth=${yearMonth}`);
-        
-        if (loadingEl) loadingEl.style.display = 'none';
-        
-        if (res.ok && res.data && res.data.length > 0) {
-            if (containerEl) containerEl.style.display = 'block';
-            await renderCharts(res.data);
-        } else {
-            if (emptyEl) emptyEl.style.display = 'block';
-        }
-        
-    } catch (error) {
-        console.error('載入分析失敗:', error);
-        if (loadingEl) loadingEl.style.display = 'none';
-        showNotification('載入失敗，請稍後再試', 'error');
-    }
-}
-
-/**
- * 繪製圖表
- */
-async function renderCharts(data) {
-    await ensureLib('chart'); // 進到分析畫面才載入 Chart.js
-    const dates = data.map(d => d.date.substring(5));
-    const workHours = data.map(d => d.workHours || 0);
-    const punchInTimes = data.map(d => d.punchIn ? timeToDecimal(d.punchIn) : null);
-    const punchOutTimes = data.map(d => d.punchOut ? timeToDecimal(d.punchOut) : null);
-    
-    renderWorkHoursChart(dates, workHours);
-    renderPunchTimeChart(dates, punchInTimes, punchOutTimes);
-}
-
-/**
- * 繪製工作時數圖表
- */
-function renderWorkHoursChart(dates, workHours) {
-    const canvas = document.getElementById('work-hours-chart');
-    if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
-    
-    if (workHoursChart) {
-        workHoursChart.destroy();
-    }
-    
-    workHoursChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: dates,
-            datasets: [{
-                label: '工作時數',
-                data: workHours,
-                backgroundColor: 'rgba(79, 70, 229, 0.6)',
-                borderColor: 'rgba(79, 70, 229, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: '小時'
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return `${context.parsed.y.toFixed(2)} 小時`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-/**
- * 繪製打卡時間分布圖
- */
-function renderPunchTimeChart(dates, punchInTimes, punchOutTimes) {
-    const canvas = document.getElementById('punch-time-chart');
-    if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
-    
-    if (punchTimeChart) {
-        punchTimeChart.destroy();
-    }
-    
-    punchTimeChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: dates,
-            datasets: [
-                {
-                    label: '上班打卡',
-                    data: punchInTimes,
-                    borderColor: 'rgba(34, 197, 94, 1)',
-                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                    fill: false,
-                    tension: 0.1
-                },
-                {
-                    label: '下班打卡',
-                    data: punchOutTimes,
-                    borderColor: 'rgba(239, 68, 68, 1)',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    fill: false,
-                    tension: 0.1
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: {
-                    min: 6,
-                    max: 22,
-                    ticks: {
-                        stepSize: 1,
-                        callback: function(value) {
-                            return `${Math.floor(value)}:${String(Math.round((value % 1) * 60)).padStart(2, '0')}`;
-                        }
-                    },
-                    title: {
-                        display: true,
-                        text: '時間'
-                    }
-                }
-            },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const value = context.parsed.y;
-                            const hours = Math.floor(value);
-                            const minutes = Math.round((value % 1) * 60);
-                            return `${context.dataset.label}: ${hours}:${String(minutes).padStart(2, '0')}`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-/**
- * 匯出員工打卡報表（含時分秒和每日總時數）
- */
-async function exportEmployeePunchReport() {
-    await ensureLib('xlsx'); // 匯出時才載入 SheetJS
-    const employeeSelect = document.getElementById('analysis-employee');
-    const monthInput = document.getElementById('analysis-month');
-    const exportBtn = document.getElementById('export-employee-punch-btn');
-    
-    if (!employeeSelect || !monthInput) return;
-    
-    const employeeId = employeeSelect.value;
-    const yearMonth = monthInput.value;
-    
-    if (!employeeId) {
-        showNotification('請選擇員工', 'error');
-        return;
-    }
-    
-    if (!yearMonth) {
-        showNotification('請選擇月份', 'error');
-        return;
-    }
-    
-    const loadingText = t('EXPORT_LOADING') || '正在準備報表...';
-    showNotification(loadingText, 'warning');
-    
-    if (exportBtn) {
-        generalButtonState(exportBtn, 'processing', loadingText);
-    }
-    
-    try {
-        // 取得員工名稱
-        const employeeName = employeeSelect.options[employeeSelect.selectedIndex].text.split(' (')[0];
-        
-        // 呼叫後端 API 取得詳細打卡資料
-        const res = await callApifetch(`getAttendanceDetails&month=${yearMonth}&userId=${employeeId}`);
-        
-        if (!res.ok || !res.records || res.records.length === 0) {
-            showNotification(t('EXPORT_NO_DATA') || '本月沒有出勤記錄', 'warning');
-            return;
-        }
-        
-        // 整理資料為 Excel 格式
-        const exportData = [];
-        
-        res.records.forEach(record => {
-            // 找出上班和下班的記錄
-            const punchInRecord = record.record ? record.record.find(r => r.type === '上班') : null;
-            const punchOutRecord = record.record ? record.record.find(r => r.type === '下班') : null;
-            
-            // 計算工時
-            let workHours = '-';
-            let workHoursDecimal = 0;
-            let overtimeHours = 0;
-            let hasOvertime = false;
-
-            if (punchInRecord && punchOutRecord) {
-                try {
-                    // 使用完整的日期時間來計算
-                    const inTime = new Date(`${record.date} ${punchInRecord.time}`);
-                    const outTime = new Date(`${record.date} ${punchOutRecord.time}`);
-                    const diffMs = outTime - inTime;
-                    
-                    if (diffMs > 0) {
-                        // 計算總工時（小時）
-                        const totalHours = diffMs / (1000 * 60 * 60);
-                        
-                        // 扣除午休 1 小時
-                        const lunchBreak = 1;
-                        const netWorkHours = totalHours - lunchBreak;
-                        
-                        // 計算加班時數（超過標準工時 8 小時的部分）
-                        const standardWorkHours = 8;
-                        overtimeHours = Math.max(0, netWorkHours - standardWorkHours);
-                        
-                        // 格式化顯示
-                        workHoursDecimal = netWorkHours;
-                        const hours = Math.floor(netWorkHours);
-                        const minutes = Math.round((netWorkHours - hours) * 60);
-                        workHours = `${hours}小時${minutes}分`;
-                        
-                        // 標記是否有加班
-                        hasOvertime = overtimeHours > 0.5; // 超過 30 分鐘才算加班
-                        
-                        console.log(`工時計算:`, {
-                            date: record.date,
-                            總時長: totalHours.toFixed(2),
-                            扣除午休: lunchBreak,
-                            淨工時: netWorkHours.toFixed(2),
-                            加班時數: overtimeHours.toFixed(2)
-                        });
-                    }
-                } catch (e) {
-                    console.error('計算工時失敗:', e);
-                    workHours = '計算錯誤';
-                }
-            }
-                        
-            // 翻譯狀態
-            const statusText = t(record.reason) || record.reason;
-            
-            // 處理備註
-            const notes = record.record
-                ? record.record
-                    .filter(r => r.note && r.note !== '系統虛擬卡')
-                    .map(r => r.note)
-                    .join('; ')
-                : '';
-            
-            exportData.push({
-                '日期': record.date,
-                '星期': getDayOfWeek(record.date),
-                '上班時間': punchInRecord ? `${punchInRecord.time}:00` : '-',
-                '上班地點': punchInRecord?.location || '-',
-                '下班時間': punchOutRecord ? `${punchOutRecord.time}:00` : '-',
-                '下班地點': punchOutRecord?.location || '-',
-                '工作時數': workHours,
-                '工時（小時）': workHoursDecimal > 0 ? workHoursDecimal.toFixed(2) : '-',
-                '狀態': statusText,
-                '備註': notes || '-'
-            });
-        });
-        
-        // 計算統計資料
-        const totalWorkHours = exportData.reduce((sum, row) => {
-            const hours = parseFloat(row['工時（小時）']);
-            return sum + (isNaN(hours) ? 0 : hours);
-        }, 0);
-        
-        const totalDays = exportData.filter(row => row['工時（小時）'] !== '-').length;
-        const avgWorkHours = totalDays > 0 ? (totalWorkHours / totalDays).toFixed(2) : 0;
-        
-        // 新增統計行
-        exportData.push({});
-        exportData.push({
-            '日期': '統計',
-            '星期': '',
-            '上班時間': '',
-            '上班地點': '',
-            '下班時間': '',
-            '下班地點': '',
-            '工作時數': `共 ${totalDays} 天`,
-            '工時（小時）': totalWorkHours.toFixed(2),
-            '狀態': `平均: ${avgWorkHours}`,
-            '備註': ''
-        });
-        
-        // 使用 SheetJS 建立 Excel 檔案
-        const ws = XLSX.utils.json_to_sheet(exportData);
-        
-        // 設定欄位寬度
-        const wscols = [
-            { wch: 12 },  // 日期
-            { wch: 8 },   // 星期
-            { wch: 12 },  // 上班時間
-            { wch: 25 },  // 上班地點
-            { wch: 12 },  // 下班時間
-            { wch: 25 },  // 下班地點
-            { wch: 15 },  // 工作時數
-            { wch: 12 },  // 工時（小時）
-            { wch: 18 },  // 狀態
-            { wch: 30 }   // 備註
-        ];
-        ws['!cols'] = wscols;
-        
-        // 建立工作簿
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, `${yearMonth.split('-')[1]}月出勤`);
-        
-        // 下載檔案
-        const [year, month] = yearMonth.split('-');
-        const fileName = `${employeeName}_${year}年${month}月_打卡記錄.xlsx`;
-        XLSX.writeFile(wb, fileName);
-        
-        showNotification(t('EXPORT_SUCCESS') || '報表已成功匯出！', 'success');
-        
-    } catch (error) {
-        console.error('匯出失敗:', error);
-        showNotification(t('EXPORT_FAILED') || '匯出失敗，請稍後再試', 'error');
-        
-    } finally {
-        if (exportBtn) {
-            generalButtonState(exportBtn, 'idle');
-        }
-    }
-}
 
 /**
  * 取得星期幾
@@ -3643,289 +2723,8 @@ function timeToDecimal(timeStr) {
     return hours + (minutes / 60);
 }
 
-// ==================== 生物辨識快速打卡功能 ====================
+// 已移到 biometric.js
 
-/**
- * 檢查瀏覽器是否支援 WebAuthn
- */
-function checkBiometricSupport() {
-    // WebAuthn 只在 HTTPS（或 localhost）下可用，http 頁面連 API 都不會出現
-    return window.isSecureContext !== false &&
-           window.PublicKeyCredential !== undefined && 
-           navigator.credentials !== undefined;
-}
-
-/**
- * 這台裝置是否真的有內建的生物辨識可用。
- * 只看 PublicKeyCredential 存不存在是不夠的：LINE 內建瀏覽器、
- * 沒有 Windows Hello 的桌機都有這個 API，但實際呼叫一定失敗。
- */
-async function checkPlatformAuthenticator() {
-    if (!checkBiometricSupport()) return false;
-    if (typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable !== 'function') return false;
-    try {
-        return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-    } catch (e) {
-        console.warn('平台驗證器偵測失敗:', e);
-        return false;
-    }
-}
-
-/**
- * credential.id 是 base64url（用 - _ 且不補 =），atob 只吃標準 base64，
- * 直接丟進去會在含 - 或 _ 的憑證上拋 InvalidCharacterError。
- */
-function base64urlToBytes(value) {
-    const b64 = value.replace(/-/g, '+').replace(/_/g, '/')
-        .padEnd(Math.ceil(value.length / 4) * 4, '=');
-    const raw = atob(b64);
-    return Uint8Array.from(raw, c => c.charCodeAt(0));
-}
-
-/**
- * 初始化生物辨識打卡功能
- */
-async function initBiometricPunch() {
-    const setupBtn = document.getElementById('setup-biometric-btn');
-    const biometricInBtn = document.getElementById('biometric-punch-in-btn');
-    const biometricOutBtn = document.getElementById('biometric-punch-out-btn');
-    const notSetupStatus = document.getElementById('biometric-not-setup');
-    const readyStatus = document.getElementById('biometric-ready');
-    const biometricButtons = document.getElementById('biometric-punch-buttons');
-    
-    if (!setupBtn) return;
-    
-    // 檢查支援度：先看 API，再確認裝置真的有可用的生物辨識
-    if (!checkBiometricSupport()) {
-        setupBtn.textContent = '此瀏覽器不支援生物辨識打卡';
-        setupBtn.disabled = true;
-        setupBtn.classList.add('opacity-50', 'cursor-not-allowed');
-        return;
-    }
-    
-    if (!await checkPlatformAuthenticator()) {
-        setupBtn.textContent = '此裝置沒有可用的生物辨識';
-        setupBtn.disabled = true;
-        setupBtn.classList.add('opacity-50', 'cursor-not-allowed');
-        setupBtn.title = '請改用系統瀏覽器開啟，或在裝置設定中啟用指紋／臉部辨識';
-        return;
-    }
-    
-    // 檢查是否已設定
-    const credentialId = localStorage.getItem('biometric_credential_id');
-    if (credentialId) {
-        setupBtn.classList.add('hidden');
-        biometricButtons.classList.remove('hidden');
-        notSetupStatus.classList.add('hidden');
-        readyStatus.classList.remove('hidden');
-    }
-    
-    // 設定生物辨識
-    setupBtn.addEventListener('click', async () => {
-        try {
-            showNotification('請使用 Face ID 或指紋進行驗證...', 'info');
-            
-            const userId = localStorage.getItem('sessionUserId');
-            if (!userId) {
-                showNotification('請先登入', 'error');
-                return;
-            }
-            
-            // 建立 credential
-            const credential = await registerBiometric(userId);
-            
-            if (credential) {
-                // 儲存 credential ID
-                localStorage.setItem('biometric_credential_id', credential.id);
-                localStorage.setItem('biometric_user_id', userId);
-                
-                // 更新 UI
-                setupBtn.classList.add('hidden');
-                biometricButtons.classList.remove('hidden');
-                notSetupStatus.classList.add('hidden');
-                readyStatus.classList.remove('hidden');
-                
-                showNotification('生物辨識設定成功！', 'success');
-            }
-            
-        } catch (error) {
-            console.error('生物辨識設定失敗:', error);
-            
-            if (error.name === 'NotAllowedError') {
-                showNotification('您取消了設定，或裝置驗證逾時', 'warning');
-            } else if (error.name === 'InvalidStateError') {
-                showNotification('這台裝置已經註冊過，請直接使用生物辨識打卡', 'warning');
-            } else if (error.name === 'NotSupportedError' || error.name === 'SecurityError') {
-                showNotification('此瀏覽器無法使用生物辨識，請改用系統瀏覽器開啟', 'error');
-            } else {
-                showNotification('設定失敗，請稍後再試', 'error');
-            }
-        }
-    });
-    
-    // 生物辨識上班打卡
-    if (biometricInBtn) {
-        biometricInBtn.addEventListener('click', () => biometricPunch('上班'));
-    }
-    
-    // 生物辨識下班打卡
-    if (biometricOutBtn) {
-        biometricOutBtn.addEventListener('click', () => biometricPunch('下班'));
-    }
-}
-
-/**
- * 註冊生物辨識
- */
-async function registerBiometric(userId) {
-    try {
-        // 產生隨機 challenge
-        const challenge = new Uint8Array(32);
-        window.crypto.getRandomValues(challenge);
-        
-        const publicKeyCredentialCreationOptions = {
-            challenge: challenge,
-            rp: {
-                name: "出勤管家",
-                id: window.location.hostname
-            },
-            user: {
-                id: Uint8Array.from(userId, c => c.charCodeAt(0)),
-                name: userId,
-                displayName: document.getElementById('user-name')?.textContent || userId
-            },
-            pubKeyCredParams: [
-                { alg: -7, type: "public-key" },  // ES256
-                { alg: -257, type: "public-key" } // RS256
-            ],
-            authenticatorSelection: {
-                authenticatorAttachment: "platform", // 使用裝置內建的生物辨識
-                userVerification: "required"
-            },
-            timeout: 60000,
-            attestation: "none"
-        };
-        
-        const credential = await navigator.credentials.create({
-            publicKey: publicKeyCredentialCreationOptions
-        });
-        
-        return credential;
-        
-    } catch (error) {
-        console.error('註冊失敗:', error);
-        throw error;
-    }
-}
-
-/**
- * 使用生物辨識進行打卡
- */
-async function biometricPunch(type) {
-    // 驗證期間鎖住兩顆按鈕，避免使用者連按造成重複打卡
-    const bioBtns = [
-        document.getElementById('biometric-punch-in-btn'),
-        document.getElementById('biometric-punch-out-btn')
-    ].filter(Boolean);
-    const lockButtons = (locked) => bioBtns.forEach(b => {
-        b.disabled = locked;
-        b.classList.toggle('opacity-50', locked);
-        b.classList.toggle('cursor-not-allowed', locked);
-    });
-    
-    if (bioBtns.some(b => b.disabled)) return;
-    lockButtons(true);
-    
-    try {
-        const credentialId = localStorage.getItem('biometric_credential_id');
-        const storedUserId = localStorage.getItem('biometric_user_id');
-        const currentUserId = localStorage.getItem('sessionUserId');
-        
-        if (!credentialId || storedUserId !== currentUserId) {
-            showNotification('請重新設定生物辨識', 'error');
-            return;
-        }
-        
-        showNotification(`請使用 Face ID 或指紋驗證...`, 'info');
-        
-        // 驗證生物辨識
-        const verified = await verifyBiometric(credentialId);
-        
-        if (verified) {
-            // 驗證成功，執行打卡
-            await doPunch(type);
-        } else {
-            showNotification('驗證失敗', 'error');
-        }
-        
-    } catch (error) {
-        console.error('生物辨識打卡失敗:', error);
-        
-        if (error.name === 'NotAllowedError') {
-            // 使用者取消，或憑證已經不在這台裝置上（換網域、清除瀏覽器資料）
-            showNotification('驗證未通過；若持續失敗請重新設定生物辨識', 'warning');
-        } else if (error.name === 'InvalidCharacterError' || error.name === 'InvalidStateError') {
-            // 憑證資料已經不能用，直接清掉讓使用者重新設定
-            console.warn('憑證失效，重置生物辨識設定');
-            resetBiometric();
-            showNotification('生物辨識憑證已失效，請重新設定', 'error');
-        } else {
-            showNotification('驗證失敗，請使用一般打卡', 'error');
-        }
-    } finally {
-        lockButtons(false);
-    }
-}
-
-/**
- * 驗證生物辨識
- */
-async function verifyBiometric(credentialId) {
-    try {
-        const challenge = new Uint8Array(32);
-        window.crypto.getRandomValues(challenge);
-        
-        const publicKeyCredentialRequestOptions = {
-            challenge: challenge,
-            allowCredentials: [{
-                id: base64urlToBytes(credentialId),
-                type: 'public-key'
-            }],
-            timeout: 60000,
-            userVerification: "required"
-        };
-        
-        const assertion = await navigator.credentials.get({
-            publicKey: publicKeyCredentialRequestOptions
-        });
-        
-        return !!assertion;
-        
-    } catch (error) {
-        console.error('驗證失敗:', error);
-        throw error;
-    }
-}
-
-/**
- * 重置生物辨識設定
- */
-function resetBiometric() {
-    localStorage.removeItem('biometric_credential_id');
-    localStorage.removeItem('biometric_user_id');
-    
-    const setupBtn = document.getElementById('setup-biometric-btn');
-    const biometricButtons = document.getElementById('biometric-punch-buttons');
-    const notSetupStatus = document.getElementById('biometric-not-setup');
-    const readyStatus = document.getElementById('biometric-ready');
-    
-    if (setupBtn) setupBtn.classList.remove('hidden');
-    if (biometricButtons) biometricButtons.classList.add('hidden');
-    if (notSetupStatus) notSetupStatus.classList.remove('hidden');
-    if (readyStatus) readyStatus.classList.add('hidden');
-    
-    showNotification('生物辨識已重置', 'success');
-}
 
 /**
      * 執行打卡
@@ -3934,7 +2733,7 @@ async function doPunch(type) {
 
     //  防止重複提交
     if (_isPunching) {
-        showNotification('打卡處理中，請勿重複點擊', 'warning');
+        showNotification(t('NOTIF_PUNCHING'), 'warning');
         return;
     }
     _isPunching = true;
@@ -4107,7 +2906,7 @@ async function loadAllUsers() {
         console.error('載入用戶失敗:', error);
         if (loadingEl) loadingEl.style.display = 'none';
         if (emptyEl) emptyEl.style.display = 'block';
-        showNotification('載入失敗，請稍後再試', 'error');
+        showNotification(t('NOTIF_LOAD_FAILED_RETRY'), 'error');
         
     } finally {
         // 恢復按鈕狀態
@@ -4281,12 +3080,12 @@ async function changeUserRole(userId, userName, newRole) {
 
     
     try {
-        showNotification('處理中...', 'info');
+        showNotification(t('NOTIF_PROCESSING'), 'info');
         
         const res = await callApifetch(`updateUserRole&userId=${encodeURIComponent(userId)}&role=${newRole}`);
         
         if (res.ok) {
-            showNotification(`已成功將「${userName}」設為${roleText}`, 'success');
+            showNotification(t('NOTIF_ROLE_UPDATED', { name: userName, role: roleText }), 'success');
             
             // 重新載入列表
             await loadAllUsers();
@@ -4294,7 +3093,7 @@ async function changeUserRole(userId, userName, newRole) {
             // 如果改的是當前用戶，需要重新整理頁面
             const currentUserId = localStorage.getItem('sessionUserId');
             if (userId === currentUserId) {
-                showNotification('您的權限已變更，即將重新整理頁面...', 'warning');
+                showNotification(t('NOTIF_ROLE_CHANGED_RELOAD'), 'warning');
                 setTimeout(() => {
                     window.location.reload();
                 }, 2000);
@@ -4305,7 +3104,7 @@ async function changeUserRole(userId, userName, newRole) {
         
     } catch (error) {
         console.error('更改角色失敗:', error);
-        showNotification('操作失敗，請稍後再試', 'error');
+        showNotification(t('NOTIF_OPERATION_FAILED'), 'error');
     }
 }
 
@@ -4329,12 +3128,12 @@ function confirmDeleteUser(userId, userName) {
  */
 async function deleteUser(userId, userName) {
     try {
-        showNotification('刪除中...', 'warning');
+        showNotification(t('NOTIF_DELETING'), 'warning');
         
         const res = await callApifetch(`deleteUser&userId=${encodeURIComponent(userId)}`);
         
         if (res.ok) {
-            showNotification(`已成功刪除「${userName}」`, 'success');
+            showNotification(t('NOTIF_USER_DELETED', { name: userName }), 'success');
             
             // 重新載入列表
             await loadAllUsers();
@@ -4344,7 +3143,7 @@ async function deleteUser(userId, userName) {
         
     } catch (error) {
         console.error('刪除用戶失敗:', error);
-        showNotification('刪除失敗，請稍後再試', 'error');
+        showNotification(t('NOTIF_DELETE_FAILED_RETRY'), 'error');
     }
 }
 
@@ -4441,32 +3240,32 @@ async function saveNewName(userId) {
     
     // 驗證
     if (!newName) {
-        showNotification('請輸入新姓名', 'error');
+        showNotification(t('NOTIF_NEW_NAME_REQUIRED'), 'error');
         input.focus();
         return;
     }
     
     if (newName.length < 2) {
-        showNotification('姓名至少需要 2 個字', 'error');
+        showNotification(t('NOTIF_NAME_TOO_SHORT'), 'error');
         input.focus();
         return;
     }
     
     if (newName.length > 50) {
-        showNotification('姓名不能超過 50 個字', 'error');
+        showNotification(t('NOTIF_NAME_TOO_LONG'), 'error');
         input.focus();
         return;
     }
     
     try {
-        showNotification('更新中...', 'info');
+        showNotification(t('NOTIF_UPDATING'), 'info');
         
         const res = await callApifetch(
             `updateEmployeeName&userId=${encodeURIComponent(userId)}&newName=${encodeURIComponent(newName)}`
         );
         
         if (res.ok) {
-            showNotification(` 姓名已更新為「${res.newName}」`, 'success');
+            showNotification(t('NOTIF_NAME_UPDATED', { name: res.newName }), 'success');
             
             // 關閉對話框
             closeEditNameDialog();
@@ -4479,7 +3278,7 @@ async function saveNewName(userId) {
         
     } catch (error) {
         console.error('更新姓名失敗:', error);
-        showNotification('更新失敗，請稍後再試', 'error');
+        showNotification(t('NOTIF_UPDATE_FAILED'), 'error');
     }
 }
 
@@ -4598,7 +3397,7 @@ async function deleteAnnouncement(id) {
         
     } catch (error) {
         console.error('刪除公告失敗:', error);
-        showNotification('刪除失敗', 'error');
+        showNotification(t('NOTIF_DELETE_FAILED'), 'error');
     }
 }
 
@@ -4727,14 +3526,14 @@ async function saveEmployeeBasicInfo() {
         
         // 驗證必填欄位
         if (!idNumber) {
-            showNotification('請填寫身分證字號', 'error');
+            showNotification(t('NOTIF_ID_NUMBER_REQUIRED'), 'error');
             return;
         }
         
         // 驗證身分證格式（台灣身分證）
         const idPattern = /^[A-Z][12]\d{8}$/;
         if (!idPattern.test(idNumber)) {
-            showNotification('身分證字號格式不正確（例：A123456789）', 'error');
+            showNotification(t('NOTIF_ID_FORMAT_INVALID'), 'error');
             return;
         }
         
@@ -4766,7 +3565,7 @@ async function saveEmployeeBasicInfo() {
         
     } catch (error) {
         console.error(' saveEmployeeBasicInfo 錯誤:', error); //  改這裡
-        showNotification('儲存失敗', 'error');
+        showNotification(t('NOTIF_SAVE_FAILED'), 'error');
         
     } finally {
         const saveBtn = document.getElementById('save-basic-info-btn');
@@ -4873,7 +3672,7 @@ let _isSubmittingToday = false;
  *  提交當日異常修正
  */
 async function submitAdjustToday() {
-    if (_isSubmittingToday) { showNotification('處理中，請勿重複點擊', 'warning'); return; }
+    if (_isSubmittingToday) { showNotification(t('NOTIF_PROCESSING_NO_DOUBLE'), 'warning'); return; }
     _isSubmittingToday = true;
     const typeSelect = document.getElementById('adjust-type-select');
     const timeInput = document.getElementById('adjust-time-input');
@@ -4886,12 +3685,12 @@ async function submitAdjustToday() {
     
     // 驗證
     if (!time) {
-        showNotification('請選擇時間', 'error');
+        showNotification(t('NOTIF_SELECT_TIME'), 'error');
         return;
     }
     
     if (!reason || reason.length < 2) {
-        showNotification('請填寫修正理由（至少 2 個字）', 'error');
+        showNotification(t('NOTIF_ADJUST_REASON_2'), 'error');
         return;
     }
     
@@ -4927,7 +3726,7 @@ async function submitAdjustToday() {
         if (res.ok) clearMonthDataCache(); // 補打卡送出後，快取的月資料已過期
         
         if (res.ok) {
-            showNotification('修正申請成功！等待管理員審核', 'success');
+            showNotification(t('NOTIF_ADJUST_SUBMITTED'), 'success');
             closeAdjustTodayDialog();
             
             // 重新載入異常記錄
@@ -4938,7 +3737,7 @@ async function submitAdjustToday() {
         
     } catch (err) {
         console.error('當日修正錯誤:', err);
-        showNotification('修正失敗', 'error');
+        showNotification(t('NOTIF_ADJUST_FAILED'), 'error');
         
     } finally {
         generalButtonState(submitBtn, 'idle');
@@ -5069,7 +3868,7 @@ let _isSubmittingHistory = false;
  *  提交歷史補打卡申請
  */
 async function submitHistoryAdjust() {
-    if (_isSubmittingHistory) { showNotification('處理中，請勿重複點擊', 'warning'); return; }
+    if (_isSubmittingHistory) { showNotification(t('NOTIF_PROCESSING_NO_DOUBLE'), 'warning'); return; }
     _isSubmittingHistory = true;
 
     const dateInput = document.getElementById('history-adjust-date');
@@ -5087,22 +3886,22 @@ async function submitHistoryAdjust() {
         // ===== 驗證 =====
 
         if (!date) {
-            showNotification('請選擇補打日期', 'error');
+            showNotification(t('NOTIF_SELECT_ADJUST_DATE'), 'error');
             dateInput.focus();
             return;
         }
         if (!type) {
-            showNotification('請選擇補打類型', 'error');
+            showNotification(t('NOTIF_SELECT_ADJUST_TYPE'), 'error');
             typeInput.focus();
             return;
         }
         if (!time) {
-            showNotification('請選擇實際打卡時間', 'error');
+            showNotification(t('NOTIF_SELECT_PUNCH_TIME'), 'error');
             timeInput.focus();
             return;
         }
         if (reason.length < 10) {
-            showNotification('補打原因至少需要 10 個字，請詳細說明', 'error');
+            showNotification(t('NOTIF_ADJUST_REASON_10'), 'error');
             reasonInput.focus();
             return;
         }
@@ -5113,11 +3912,11 @@ async function submitHistoryAdjust() {
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
         if (selectedDate < monthStart) {
-            showNotification('只能補打本月的打卡記錄', 'error');
+            showNotification(t('NOTIF_ADJUST_THIS_MONTH_ONLY'), 'error');
             return;
         }
         if (selectedDate > today) {
-            showNotification('不能補打未來的日期', 'error');
+            showNotification(t('NOTIF_NO_FUTURE_ADJUST'), 'error');
             return;
         }
         if (selectedDate.getTime() === today.getTime()) {
@@ -5161,7 +3960,7 @@ async function submitHistoryAdjust() {
         if (res.ok) clearMonthDataCache(); // 補打卡送出後，快取的月資料已過期
 
         if (res.ok) {
-            showNotification('歷史補打卡申請已提交！等待主管審核', 'success');
+            showNotification(t('NOTIF_HISTORY_ADJUST_SUBMITTED'), 'success');
             closeHistoryAdjustDialog();
             await checkAbnormal();
         } else {
@@ -5171,9 +3970,9 @@ async function submitHistoryAdjust() {
     } catch (err) {
         console.error('歷史補打卡錯誤:', err);
         if (err.code === 1) {
-            showNotification('無法取得位置，請確認已開啟定位權限', 'error');
+            showNotification(t('NOTIF_NO_LOCATION_PERMISSION'), 'error');
         } else {
-            showNotification('提交失敗，請稍後再試', 'error');
+            showNotification(t('NOTIF_SUBMIT_FAILED'), 'error');
         }
     } finally {
         _isSubmittingHistory = false;
@@ -5296,11 +4095,11 @@ async function handlePendingQRPunch() {
  * 員工 QR 打卡（由掃描後的 URL 觸發）
  */
 async function performQRPunch(qrTokenId) {
-    showNotification('正在處理 QR 打卡...', 'info');
+    showNotification(t('NOTIF_QR_PROCESSING'), 'info');
     try {
         const token = localStorage.getItem('sessionToken');
         if (!token) {
-            showNotification('請先登入才能使用 QR 打卡', 'error');
+            showNotification(t('NOTIF_LOGIN_REQUIRED_QR'), 'error');
             return;
         }
         const qrLoc = sessionStorage.getItem('pendingQRLoc') || '';
@@ -5311,7 +4110,7 @@ async function performQRPunch(qrTokenId) {
         if (res.ok) {
             const type = (res.params && res.params.type) || '';
             const loc  = (res.params && res.params.location) || '';
-            showNotification(`QR 打卡成功！${type ? ' ' + type : ''}${loc ? ' - ' + loc : ''}`, 'success');
+            showNotification(t('NOTIF_QR_PUNCH_OK', { detail: `${type || ''}${loc ? ' - ' + loc : ''}`.trim() }), 'success');
             // 重新載入異常記錄
             await loadAbnormalRecordsInBackground();
         } else {
@@ -5325,7 +4124,7 @@ async function performQRPunch(qrTokenId) {
         }
     } catch (err) {
         console.error('QR 打卡錯誤:', err);
-        showNotification('QR 打卡失敗，請稍後再試', 'error');
+        showNotification(t('NOTIF_QR_PUNCH_FAILED'), 'error');
     }
 }
 
@@ -5343,7 +4142,7 @@ async function generateAdminQRCode() {
     if (validSelect.value === 'custom') {
         validMinutes = parseInt(document.getElementById('qr-valid-minutes-custom').value);
         if (!validMinutes || validMinutes < 1 || validMinutes > 1440) {
-            showNotification('請輸入有效的分鐘數（1~1440）', 'error');
+            showNotification(t('NOTIF_MINUTES_RANGE'), 'error');
             return;
         }
     } else {
@@ -5408,11 +4207,11 @@ async function generateAdminQRCode() {
         _tickQRCountdown();
         _qrCountdownInterval = setInterval(_tickQRCountdown, 1000);
 
-        showNotification(`QR Code 已產生，${validMinutes} 分鐘內有效`, 'success');
+        showNotification(t('NOTIF_QR_GENERATED', { minutes: validMinutes }), 'success');
 
     } catch (err) {
         console.error('generateAdminQRCode 錯誤:', err);
-        showNotification('產生 QR Code 失敗，請稍後再試', 'error');
+        showNotification(t('NOTIF_QR_GENERATE_FAILED'), 'error');
     } finally {
         btn.disabled    = false;
         btn.textContent = '產生 QR Code';

@@ -331,6 +331,10 @@ function doGet(e) {
         return respond1(handleReviewAdvanceApplication(e.parameter));
       case "reviewReimbursement":
         return respond1(handleReviewReimbursement(e.parameter));
+      // ==================== 假日清單 ====================
+      case "getHolidays":
+        return respond1(handleGetHolidays());
+      
       // ==================== 測試端點 ====================
       case "initApp":
         return respond1(handleInitApp(e.parameter));
