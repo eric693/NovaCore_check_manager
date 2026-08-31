@@ -217,11 +217,11 @@ function renderOvertimeRecords(requests, container) {
                 </span>
             </div>
             <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                <strong>申請原因：</strong>${req.reason}
+                <strong>申請原因：</strong>${escapeHtml(req.reason)}
             </p>
             ${req.reviewComment ? `
                 <p class="text-sm text-gray-500 dark:text-gray-400 italic">
-                    <strong>審核意見：</strong>${req.reviewComment}
+                    <strong>審核意見：</strong>${escapeHtml(req.reviewComment)}
                 </p>
             ` : ''}
         `;
@@ -247,23 +247,43 @@ function bindOvertimeFormEvents() {
     const startTimeInput = document.getElementById('overtime-start-time');
     const endTimeInput = document.getElementById('overtime-end-time');
     
+    const dateInput = document.getElementById('overtime-date');
+    
     if (startTimeInput && endTimeInput) {
         const toMin = t => parseInt(t.split(':')[0]) * 60 + parseInt(t.split(':')[1]);
 
+        // 平日是接在正常班之後加班，所以從 19:30 起算；
+        // 週末整天都算加班，要從實際開始時間算起，
+        // 原本只看結束時間，休息日早上開始加班會直接算成 0 小時。
+        const isRestDay = () => {
+            const value = dateInput && dateInput.value;
+            if (!value) return false;
+            const day = new Date(`${value}T00:00:00`).getDay();
+            return day === 0 || day === 6;
+        };
+
         const calculateHours = () => {
+            const start = startTimeInput.value;
             const end = endTimeInput.value;
-            if (!end) return;
+            const hoursInput = document.getElementById('overtime-hours');
+            if (!start || !end || !hoursInput) return;
 
-            const endMin = toMin(end);
-            const hours = endMin <= OVERTIME_THRESHOLD_MIN
+            const startMin = toMin(start);
+            let endMin = toMin(end);
+            if (endMin <= startMin) endMin += 24 * 60; // 跨夜加班
+
+            // 起算點：休息日看開始時間，平日不早於 19:30
+            const beginMin = isRestDay() ? startMin : Math.max(startMin, OVERTIME_THRESHOLD_MIN);
+            const hours = endMin <= beginMin
                 ? 0
-                : Math.ceil((endMin - OVERTIME_THRESHOLD_MIN) / OVERTIME_UNIT_MIN) * 0.5;
+                : Math.ceil((endMin - beginMin) / OVERTIME_UNIT_MIN) * 0.5;
 
-            document.getElementById('overtime-hours').value = hours.toFixed(1);
+            hoursInput.value = hours.toFixed(1);
         };
 
         startTimeInput.addEventListener('change', calculateHours);
         endTimeInput.addEventListener('change', calculateHours);
+        if (dateInput) dateInput.addEventListener('change', calculateHours);
     }
 }
 
@@ -569,7 +589,7 @@ function renderPendingOvertimeRequests(requests, container) {
             <div class="space-y-2">
                 <div class="flex justify-between items-start">
                     <div>
-                        <p class="font-semibold text-gray-800 dark:text-white">${req.employeeName}</p>
+                        <p class="font-semibold text-gray-800 dark:text-white">${escapeHtml(req.employeeName)}</p>
                         <p class="text-sm text-gray-600 dark:text-gray-400">
                             ${req.overtimeDate} | ${startTime} - ${endTime}
                         </p>
@@ -579,7 +599,7 @@ function renderPendingOvertimeRequests(requests, container) {
                     </div>
                 </div>
                 <p class="text-sm text-gray-600 dark:text-gray-400">
-                    <strong data-i18n="OVERTIME_REASON_LABEL">申請原因：</strong>${req.reason}
+                    <strong data-i18n="OVERTIME_REASON_LABEL">申請原因：</strong>${escapeHtml(req.reason)}
                 </p>
                 <div class="flex space-x-2 mt-3">
                     <button 

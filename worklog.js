@@ -11,6 +11,8 @@ async function initWorklogTab() {
 /**
  * 設定工作日誌表單
  */
+let worklogEventsBound = false; // 分頁每切一次就會重跑一次，事件只能綁一次
+
 function setupWorklogForm() {
     const dateInput = document.getElementById('worklog-date');
     const hoursInput = document.getElementById('worklog-hours');
@@ -18,10 +20,12 @@ function setupWorklogForm() {
     const submitBtn = document.getElementById('submit-worklog-btn');
     
     if (dateInput) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = todayStr();
         dateInput.value = today;
         dateInput.max = today;
     }
+    
+    if (worklogEventsBound) return; // 日期預設值每次都要更新，事件則只綁一次
     
     if (hoursInput) {
         hoursInput.addEventListener('input', (e) => {
@@ -34,6 +38,8 @@ function setupWorklogForm() {
     if (submitBtn) {
         submitBtn.addEventListener('click', submitWorklog);
     }
+    
+    worklogEventsBound = true;
 }
 
 /**
@@ -251,7 +257,7 @@ function renderWorklogRecords(worklogs) {
             </div>
             
             <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 mb-3">
-                <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">${log.content}</p>
+                <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">${escapeHtml(log.content)}</p>
             </div>
             
             ${log.reviewComment ? `
@@ -259,7 +265,7 @@ function renderWorklogRecords(worklogs) {
                     <p class="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-1">
                          ${reviewComment}：
                     </p>
-                    <p class="text-sm text-blue-700 dark:text-blue-400">${log.reviewComment}</p>
+                    <p class="text-sm text-blue-700 dark:text-blue-400">${escapeHtml(log.reviewComment)}</p>
                 </div>
             ` : ''}
             
@@ -512,7 +518,7 @@ function renderPendingWorklogs(worklogs) {
                 <p class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                      ${workContent}：
                 </p>
-                <p class="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">${log.content}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">${escapeHtml(log.content)}</p>
             </div>
             
             <div class="mb-3">

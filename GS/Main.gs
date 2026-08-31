@@ -436,6 +436,12 @@ function doPost(e) {
           results: result.results
         })).setMimeType(ContentService.MimeType.JSON);
       }
+      
+      //  其他 action 一律交給 doGet 的路由處理
+      //  POST 表單的參數同樣落在 e.parameter，所以路由可以完全共用。
+      //  這讓前端能改用 POST 傳 token，不必再把權杖放在網址列（會留在瀏覽器歷史與存取紀錄裡）。
+      Logger.log(' 交由 doGet 路由處理: ' + action);
+      return doGet(e);
     }
     
     //  如果不是 Form Data，嘗試解析 JSON（LINE Webhook）

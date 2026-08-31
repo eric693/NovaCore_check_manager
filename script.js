@@ -16,15 +16,57 @@ let _isPunching = false;
  * @param {string} [loadingId="loading"] - 顯示 loading 狀態的 DOM 元素 ID。
  * @returns {Promise<object>} - 回傳一個包含 API 回應資料的 Promise。
  */
+const API_TIMEOUT_MS = 20000; // 後端沒回應時的等待上限
+
 async function callApifetch(action, loadingId = "loading") {
     const token = localStorage.getItem("sessionToken");
     const url = `${API_CONFIG.apiUrl}?action=${action}&token=${token}`;
     
+    // action 的格式是 "punch&type=上班&lat=..."，POST 時要拆成表單欄位。
+    // 用 x-www-form-urlencoded 才不會觸發預檢請求，Apps Script 也能從 e.parameter 讀到。
+    const buildPostBody = () => {
+        const [name, ...rest] = action.split('&');
+        const body = new URLSearchParams(rest.join('&'));
+        body.set('action', name);
+        body.set('token', token || '');
+        return body;
+    };
+    const fetchOptions = API_CONFIG.useHttpPost
+        ? { method: 'POST', body: buildPostBody() }
+        : {};
+    const requestUrl = API_CONFIG.useHttpPost ? API_CONFIG.apiUrl : url;
+    
     const loadingEl = document.getElementById(loadingId);
     if (loadingEl) loadingEl.style.display = "block";
     
+    // 只讀的查詢（getXxx）失敗時可以安全重試；打卡、送單這類會寫資料的不能重試，
+    // 否則一次逾時就變成兩筆記錄。
+    const isReadOnly = /^(get|list|check|query)/i.test(action);
+    const attempts = isReadOnly ? 2 : 1;
+    
     try {
-        const response = await fetch(url);
+        let response = null;
+        let lastError = null;
+        
+        for (let i = 0; i < attempts; i++) {
+            // Apps Script 偶爾會很久不回應，沒有逾時的話畫面會一直卡在「載入中」
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+            try {
+                response = await fetch(requestUrl, { ...fetchOptions, signal: controller.signal });
+                lastError = null;
+                break;
+            } catch (err) {
+                lastError = err.name === 'AbortError'
+                    ? new Error(`連線逾時（${API_TIMEOUT_MS / 1000} 秒）`)
+                    : err;
+                if (i < attempts - 1) console.warn('API 重試中:', action, lastError.message);
+            } finally {
+                clearTimeout(timer);
+            }
+        }
+        
+        if (lastError) throw lastError;
         
         if (!response.ok) {
             throw new Error(`HTTP 錯誤: ${response.status}`);
@@ -528,7 +570,7 @@ function renderAbnormalRecords(records) {
             switch(record.reason) {
                 case 'STATUS_REPAIR_PENDING':
                     //  修改這段
-                    const isToday = record.date === new Date().toISOString().split('T')[0];
+                    const isToday = record.date === todayStr();
                     const isTodayAdjust = record.punchTypes && record.punchTypes.includes('當日修正');
                     const isHistoryAdjust = record.punchTypes && record.punchTypes.includes('歷史補打');
                     
@@ -1047,6 +1089,7 @@ async function submitAdjustPunch(date, type, note) {
         });
         
         const res = await callApifetch(`adjustPunch&${params.toString()}`);
+        if (res.ok) clearMonthDataCache(); // 補打卡送出後，快取的月資料已過期
         
         if (res.ok) {
             showNotification("補打卡申請成功！等待管理員審核", "success");
@@ -1299,7 +1342,7 @@ async function renderDailyRecords(dateKey) {
                                                 <p class="text-sm text-gray-500 dark:text-gray-400">
                                                      ${r.location}
                                                 </p>
-                                                ${r.note ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1"> ${r.note}</p>` : ''}
+                                                ${r.note ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1"> ${escapeHtml(r.note)}</p>` : ''}
                                             </div>
                                         </div>
                                     `;
@@ -1340,7 +1383,7 @@ async function renderDailyRecords(dateKey) {
                                 </p>
                                 ${ot.reason ? `
                                     <p class="text-sm text-orange-600 dark:text-orange-300">
-                                        <span data-i18n="REASON_LABEL">原因</span>：${ot.reason}
+                                        <span data-i18n="REASON_LABEL">原因</span>：${escapeHtml(ot.reason)}
                                     </p>
                                 ` : ''}
                             </div>
@@ -1430,12 +1473,12 @@ async function renderDailyRecords(dateKey) {
                                 </p>
                                 ${leave.reason ? `
                                     <p class="text-sm text-gray-600 dark:text-gray-400">
-                                        <span data-i18n="LEAVE_REASON_DISPLAY">原因</span>：${leave.reason}
+                                        <span data-i18n="LEAVE_REASON_DISPLAY">原因</span>：${escapeHtml(leave.reason)}
                                     </p>
                                 ` : ''}
                                 ${leave.reviewComment ? `
                                     <p class="text-sm text-gray-600 dark:text-gray-400 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
-                                        <span data-i18n="REVIEW_COMMENT">審核意見</span>：${leave.reviewComment}
+                                        <span data-i18n="REVIEW_COMMENT">審核意見</span>：${escapeHtml(leave.reviewComment)}
                                     </p>
                                 ` : ''}
                             </div>
@@ -1448,7 +1491,7 @@ async function renderDailyRecords(dateKey) {
                     <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-2 text-center">
                         <p class="text-sm text-gray-600 dark:text-gray-400">
                             <span data-i18n="SYSTEM_JUDGMENT">系統判斷</span>：
-                            <span class="font-semibold text-gray-800 dark:text-white" data-i18n="${recordData.reason}">${t(recordData.reason)}</span>
+                            <span class="font-semibold text-gray-800 dark:text-white" data-i18n="${escapeHtml(recordData.reason)}">${t(recordData.reason)}</span>
                         </p>
                     </div>
                 `;
@@ -1519,7 +1562,7 @@ function displaySearchResults(results) {
         const li = document.createElement('li');
         li.className = 'text-sm text-gray-800 dark:text-gray-200';
         li.innerHTML = `
-            <div class="font-semibold">${result.display_name}</div>
+            <div class="font-semibold">${escapeHtml(result.display_name)}</div>
             <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 ${parseFloat(result.lat).toFixed(6)}, ${parseFloat(result.lon).toFixed(6)}
             </div>
@@ -1704,10 +1747,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (tabWorklogBtn) {
-        tabWorklogBtn.addEventListener('click', () => {
-            switchTab('worklog-view');
-            initWorklogTab();
-        });
+        // switchTab 內部已經會呼叫 initWorklogTab()，這裡不能再呼叫一次
+        tabWorklogBtn.addEventListener('click', () => switchTab('worklog-view'));
     }
     let pendingRequests = []; // 新增：用於快取待審核的請求
     
@@ -1778,9 +1819,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="flex items-start justify-between">
                     <div class="flex-1">
                         <div class="flex items-center space-x-2 mb-2">
-                            <span class="font-bold text-gray-800 dark:text-white">${req.name}</span>
+                            <span class="font-bold text-gray-800 dark:text-white">${escapeHtml(req.name)}</span>
                             <span class="text-xs px-2 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300">
-                                ${req.remark}
+                                ${escapeHtml(req.remark)}
                             </span>
                         </div>
                         
@@ -1799,7 +1840,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                      補打卡理由：
                                 </p>
                                 <p class="text-sm text-yellow-700 dark:text-yellow-400">
-                                    ${req.note}
+                                    ${escapeHtml(req.note)}
                                 </p>
                             </div>
                         ` : ''}
@@ -1912,7 +1953,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         fillOpacity: 0.2,
                         radius: punchInRadius
                     });
-                    locationCircle.bindPopup(`<b>${loc.name}</b><br>可打卡範圍：${punchInRadius}公尺`);
+                    locationCircle.bindPopup(`<b>${escapeHtml(loc.name)}</b><br>可打卡範圍：${punchInRadius}公尺`);
                     locationCircles.addLayer(locationCircle);
                 });
                 
@@ -2157,6 +2198,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     // UI切換邏輯
+    const TAB_RELOAD_INTERVAL_MS = 30000; // 同一分頁 30 秒內不重複載入
+    const tabLoadedAt = {};
+    
     const switchTab = (tabId) => {
         // 修改這一行，加入 'shift-view'
         const tabs = ['dashboard-view', 'monthly-view', 'location-view', 'shift-view', 'admin-view', 'overtime-view', 'leave-view', 'salary-view', 'worklog-view'];
@@ -2196,6 +2240,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         // 5. 根據頁籤 ID 執行特定動作
+        // 管理員分頁一次會打 7 支 API，來回切分頁很傷；
+        // 短時間內切回同一個分頁就沿用剛才載入的結果，頁面內的操作仍會各自重新整理。
+        const now = Date.now();
+        if (now - (tabLoadedAt[tabId] || 0) < TAB_RELOAD_INTERVAL_MS) return;
+        tabLoadedAt[tabId] = now;
+        
         if (tabId === 'monthly-view') {
             renderCalendar(currentMonthDate);
         } else if (tabId === 'location-view') {
@@ -2597,6 +2647,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
                 
                 const res = await callApifetch(`adjustPunch&${params.toString()}`);
+                if (res.ok) clearMonthDataCache(); // 補打卡送出後，快取的月資料已過期
                 console.log(' 前端提交補打卡:', {
                     type: type,
                     datetime: datetime,
@@ -2839,7 +2890,7 @@ async function loadTodayShift() {
         infoEl.style.display = 'none';
         
         const userId = localStorage.getItem('sessionUserId');
-        const today = new Date().toISOString().split('T')[0];
+        const today = todayStr();
         
         const res = await callApifetch(`getEmployeeShiftForDate&employeeId=${userId}&date=${today}`);
         
@@ -2890,11 +2941,11 @@ async function loadWeekShift() {
     const endOfWeek = new Date(today);
     endOfWeek.setDate(today.getDate() + 7);
     
-    const startDateStr = startOfWeek.toISOString().split('T')[0];
-    const endDateStr = endOfWeek.toISOString().split('T')[0];
+    const startDateStr = toLocalDateStr(startOfWeek);
+    const endDateStr = toLocalDateStr(endOfWeek);
     
     console.log(' 未來排班範圍:', {
-        today: today.toISOString().split('T')[0],
+        today: toLocalDateStr(today),
         startOfWeek: startDateStr,
         endOfWeek: endDateStr
     });
@@ -2981,7 +3032,7 @@ function displayWeekShift(res) {
                         ${formatShiftDate(shift.date)}
                     </span>
                     <span class="text-purple-700 dark:text-purple-400 ml-2">
-                        ${shift.shiftType}
+                        ${escapeHtml(shift.shiftType)}
                     </span>
                 </div>
                 <div class="text-purple-700 dark:text-purple-400">
@@ -3023,6 +3074,18 @@ function formatShiftDate(dateString) {
 /**
  * 清除排班快取（當有更新時使用）
  */
+/**
+ * 清掉出勤記錄的月份快取；打卡、補打卡之後一定要呼叫，
+ * 否則切到「出勤記錄」看到的還是打卡前的資料。
+ */
+function clearMonthDataCache(monthKey) {
+    if (monthKey) {
+        delete monthDataCache[monthKey];
+    } else {
+        monthDataCache = {};
+    }
+}
+
 function clearShiftCache() {
     todayShiftCache = null;
     weekShiftCache = null;
@@ -3051,10 +3114,10 @@ function displayAnnouncements() {
         div.className = 'bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 mb-3';
         div.innerHTML = `
             <div class="flex items-start justify-between mb-2">
-                <h3 class="font-bold text-gray-800 dark:text-white">${icon} ${a.title}</h3>
+                <h3 class="font-bold text-gray-800 dark:text-white">${icon} ${escapeHtml(a.title)}</h3>
                 <span class="text-xs text-gray-500">${new Date(a.createdAt).toLocaleDateString()}</span>
             </div>
-            <p class="text-sm text-gray-600 dark:text-gray-300">${a.content}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-300">${escapeHtml(a.content)}</p>
         `;
         list.appendChild(div);
     });
@@ -3073,8 +3136,8 @@ function displayAdminAnnouncements() {
         div.innerHTML = `
             <div class="flex justify-between items-start">
                 <div class="flex-1">
-                    <h3 class="font-bold text-gray-800 dark:text-white mb-1">${a.title}</h3>
-                    <p class="text-sm text-gray-600 dark:text-gray-300 mb-2">${a.content}</p>
+                    <h3 class="font-bold text-gray-800 dark:text-white mb-1">${escapeHtml(a.title)}</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 mb-2">${escapeHtml(a.content)}</p>
                     <span class="text-xs text-gray-500">${new Date(a.createdAt).toLocaleString()}</span>
                 </div>
                 <button class="px-3 py-1 text-sm bg-red-500 hover:bg-red-600 text-white rounded ml-4" 
@@ -3892,7 +3955,7 @@ async function doPunch(type) {
     if (type === '上班') {
         try {
             const userId = localStorage.getItem('sessionUserId');
-            const today = new Date().toISOString().split('T')[0];
+            const today = todayStr();
 
             const now = new Date();
             const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
@@ -3907,7 +3970,7 @@ async function doPunch(type) {
                         shiftType: shift.shiftType,
                         startTime: shift.startTime,
                         endTime: shift.endTime
-                    }) || `今日排班：${shift.shiftType} (${shift.startTime}-${shift.endTime})`,
+                    }) || `今日排班：${escapeHtml(shift.shiftType)} (${shift.startTime}-${shift.endTime})`,
                     'info'
                 );
                 
@@ -3955,6 +4018,10 @@ async function doPunch(type) {
             const res = await callApifetch(action);
             const msg = t(res.code || "UNKNOWN_ERROR", res.params || {});
             showNotification(msg, res.ok ? "success" : "error");
+
+            if (res.ok) {
+                clearMonthDataCache(); // 打卡成功，出勤記錄的快取已經過期
+            }
 
             if (res.ok && type === '上班') {
                 clearShiftCache();
@@ -4090,12 +4157,12 @@ function renderUsersList(users) {
         div.innerHTML = `
         <div class="flex items-start space-x-3">
             <img src="${user.picture || 'https://via.placeholder.com/48'}" 
-                alt="${user.name}" 
+                alt="${escapeHtml(user.name)}" 
                 class="w-12 h-12 flex-shrink-0 rounded-full border-2 ${isAdmin ? 'border-yellow-400' : isScheduler ? 'border-blue-400' : 'border-gray-300'}">
             
             <div class="flex-1 min-w-0">
                 <div class="flex flex-wrap items-center gap-1 mb-1">
-                    <p class="font-bold text-gray-800 dark:text-white truncate">${user.name}</p>
+                    <p class="font-bold text-gray-800 dark:text-white truncate">${escapeHtml(user.name)}</p>
                     ${isCurrentUser ? '<span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full whitespace-nowrap">您</span>' : ''}
                     ${isAdmin ? '<span class="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full whitespace-nowrap">管理員</span>' : 
                       isScheduler ? '<span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full whitespace-nowrap">排班人員</span>' :
@@ -4108,41 +4175,41 @@ function renderUsersList(users) {
                 
                 ${!isCurrentUser ? `
                     <div class="flex flex-wrap gap-2">
-                        <button onclick="openEditNameDialog('${user.userId}', '${user.name}')"
+                        <button onclick="openEditNameDialog('${user.userId}', '${escapeJsAttr(user.name)}')"
                                 class="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded-md transition-colors">
                              編輯姓名
                         </button>
                         
                         ${isAdmin ? `
-                            <button onclick="changeUserRole('${user.userId}', '${user.name}', 'scheduler')"
+                            <button onclick="changeUserRole('${user.userId}', '${escapeJsAttr(user.name)}', 'scheduler')"
                                     class="flex-1 min-w-[120px] px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded-md transition-colors">
                                 改為排班人員
                             </button>
-                            <button onclick="changeUserRole('${user.userId}', '${user.name}', 'employee')"
+                            <button onclick="changeUserRole('${user.userId}', '${escapeJsAttr(user.name)}', 'employee')"
                                     class="flex-1 min-w-[120px] px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold rounded-md transition-colors">
                                 降級為員工
                             </button>
                         ` : isScheduler ? `
-                            <button onclick="changeUserRole('${user.userId}', '${user.name}', 'admin')"
+                            <button onclick="changeUserRole('${user.userId}', '${escapeJsAttr(user.name)}', 'admin')"
                                     class="flex-1 min-w-[120px] px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-xs font-semibold rounded-md transition-colors">
                                 升級為管理員
                             </button>
-                            <button onclick="changeUserRole('${user.userId}', '${user.name}', 'employee')"
+                            <button onclick="changeUserRole('${user.userId}', '${escapeJsAttr(user.name)}', 'employee')"
                                     class="flex-1 min-w-[120px] px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold rounded-md transition-colors">
                                 降級為員工
                             </button>
                         ` : `
-                            <button onclick="changeUserRole('${user.userId}', '${user.name}', 'admin')"
+                            <button onclick="changeUserRole('${user.userId}', '${escapeJsAttr(user.name)}', 'admin')"
                                     class="flex-1 min-w-[120px] px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-xs font-semibold rounded-md transition-colors">
                                 升級為管理員
                             </button>
-                            <button onclick="changeUserRole('${user.userId}', '${user.name}', 'scheduler')"
+                            <button onclick="changeUserRole('${user.userId}', '${escapeJsAttr(user.name)}', 'scheduler')"
                                     class="flex-1 min-w-[120px] px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold rounded-md transition-colors">
                                 升級為排班人員
                             </button>
                         `}
                         
-                        <button onclick="confirmDeleteUser('${user.userId}', '${user.name}')"
+                        <button onclick="confirmDeleteUser('${user.userId}', '${escapeJsAttr(user.name)}')"
                                 class="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-md transition-colors">
                             刪除
                         </button>
@@ -4464,10 +4531,10 @@ async function displayAnnouncements() {
         div.className = 'bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 mb-3';
         div.innerHTML = `
             <div class="flex items-start justify-between mb-2">
-                <h3 class="font-bold text-gray-800 dark:text-white">${icon} ${a.title}</h3>
+                <h3 class="font-bold text-gray-800 dark:text-white">${icon} ${escapeHtml(a.title)}</h3>
                 <span class="text-xs text-gray-500">${new Date(a.createdAt).toLocaleDateString()}</span>
             </div>
-            <p class="text-sm text-gray-600 dark:text-gray-300">${a.content}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-300">${escapeHtml(a.content)}</p>
         `;
         list.appendChild(div);
     });
@@ -4494,8 +4561,8 @@ async function displayAdminAnnouncements() {
         div.innerHTML = `
             <div class="flex justify-between items-start">
                 <div class="flex-1">
-                    <h3 class="font-bold text-gray-800 dark:text-white mb-1">${a.title}</h3>
-                    <p class="text-sm text-gray-600 dark:text-gray-300 mb-2">${a.content}</p>
+                    <h3 class="font-bold text-gray-800 dark:text-white mb-1">${escapeHtml(a.title)}</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 mb-2">${escapeHtml(a.content)}</p>
                     <span class="text-xs text-gray-500">${new Date(a.createdAt).toLocaleString()}</span>
                 </div>
                 <button class="px-3 py-1 text-sm bg-red-500 hover:bg-red-600 text-white rounded ml-4" 
@@ -4719,7 +4786,7 @@ function openAdjustTodayDialog() {
     dialog.id = 'adjust-today-dialog';
     
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const today = toLocalDateStr(now);
     const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
     
     dialog.innerHTML = `
@@ -4844,7 +4911,7 @@ async function submitAdjustToday() {
         
         // 組合完整日期時間
         const now = new Date();
-        const today = now.toISOString().split('T')[0];
+        const today = toLocalDateStr(now);
         const datetime = `${today}T${time}:00`;
         
         const params = new URLSearchParams({
@@ -4857,6 +4924,7 @@ async function submitAdjustToday() {
         });
         
         const res = await callApifetch(`adjustPunch&${params.toString()}`);
+        if (res.ok) clearMonthDataCache(); // 補打卡送出後，快取的月資料已過期
         
         if (res.ok) {
             showNotification('修正申請成功！等待管理員審核', 'success');
@@ -4888,9 +4956,8 @@ function openHistoryAdjustDialog() {
     dialog.id = 'history-adjust-dialog';
     
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-                        .toISOString().split('T')[0];
+    const today = toLocalDateStr(now);
+    const monthStart = toLocalDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
     
     dialog.innerHTML = `
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -5091,6 +5158,7 @@ async function submitHistoryAdjust() {
         });
 
         const res = await callApifetch(`adjustPunch&${params.toString()}`);
+        if (res.ok) clearMonthDataCache(); // 補打卡送出後，快取的月資料已過期
 
         if (res.ok) {
             showNotification('歷史補打卡申請已提交！等待主管審核', 'success');

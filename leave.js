@@ -280,7 +280,7 @@ function quickSelectTimeRange(type) {
     console.log(' 快速選擇:', type);
     
     const now = new Date();
-    const today = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const today = toLocalDateStr(now); // YYYY-MM-DD
     
     let startTime, endTime;
     
@@ -780,7 +780,7 @@ function renderPendingLeaveRequests(requests) {
                 <div class="flex items-center justify-between">
                     <div class="flex-1">
                         <p class="font-semibold text-gray-800 dark:text-white">
-                            ${req.employeeName} - ${t(req.leaveType)}
+                            ${escapeHtml(req.employeeName)} - ${t(req.leaveType)}
                         </p>
                         <p class="text-sm text-gray-600 dark:text-gray-400">
                             ${timeDisplay}
@@ -790,7 +790,7 @@ function renderPendingLeaveRequests(requests) {
                         </p>
                         ${req.reason ? `
                             <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                原因：${req.reason}
+                                原因：${escapeHtml(req.reason)}
                             </p>
                         ` : ''}
                         ${balanceWarning}

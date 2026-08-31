@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     
     // 設定預設日期為今天
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayStr();
     const shiftDateEl = document.getElementById('shift-date');
     if (shiftDateEl) shiftDateEl.value = today;
     
@@ -46,8 +46,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     const filterStartEl = document.getElementById('filter-start-date');
     const filterEndEl = document.getElementById('filter-end-date');
-    if (filterStartEl) filterStartEl.value = startOfWeek.toISOString().split('T')[0];
-    if (filterEndEl) filterEndEl.value = endOfWeek.toISOString().split('T')[0];
+    if (filterStartEl) filterStartEl.value = toLocalDateStr(startOfWeek);
+    if (filterEndEl) filterEndEl.value = toLocalDateStr(endOfWeek);
 });
 
 // ========== 分頁管理 ==========
@@ -645,11 +645,11 @@ function createShiftItem(shift) {
     
     div.innerHTML = `
         <div class="shift-info">
-            <h3>${shift.employeeName} ${shiftTypeBadge}</h3>
+            <h3>${escapeHtml(shift.employeeName)} ${shiftTypeBadge}</h3>
             <p>${t('SHIFT_DATE_LABEL')}: ${formatDate(shift.date)}</p>
             <p>${t('SHIFT_TIME_LABEL')}: ${startTime} - ${endTime}</p>
             <p>${t('SHIFT_LOCATION_LABEL')}: ${shift.location}</p>
-            ${shift.note ? `<p>${t('SHIFT_NOTE_LABEL')}: ${shift.note}</p>` : ''}
+            ${shift.note ? `<p>${t('SHIFT_NOTE_LABEL')}: ${escapeHtml(shift.note)}</p>` : ''}
         </div>
         ${actionButtons}
     `;
@@ -688,7 +688,7 @@ function getShiftTypeBadge(shiftType) {
         '自訂': 'badge-custom'
     }[shiftType] || 'badge-custom';
     
-    return `<span class="badge ${badgeClass}">${shiftType}</span>`;
+    return `<span class="badge ${badgeClass}">${escapeHtml(shiftType)}</span>`;
 }
 
 function formatDate(dateString) {
@@ -917,8 +917,8 @@ function clearFilters() {
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(endOfWeek.getDate() + 6);
     
-    document.getElementById('filter-start-date').value = startOfWeek.toISOString().split('T')[0];
-    document.getElementById('filter-end-date').value = endOfWeek.toISOString().split('T')[0];
+    document.getElementById('filter-start-date').value = toLocalDateStr(startOfWeek);
+    document.getElementById('filter-end-date').value = toLocalDateStr(endOfWeek);
     
     loadShifts();
 }
@@ -930,7 +930,7 @@ function exportShifts() {
     }
     
     const csv = convertToCSV(currentShifts);
-    const filename = `排班表_${new Date().toISOString().split('T')[0]}.csv`;
+    const filename = `排班表_${todayStr()}.csv`;
     downloadCSV(csv, filename);
     showMessage(t('SHIFT_EXPORT_SUCCESS'), 'success');
 }
@@ -976,7 +976,7 @@ function resetForm() {
         submitBtn.onclick = null;
     }
     
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayStr();
     const shiftDateEl = document.getElementById('shift-date');
     if (shiftDateEl) shiftDateEl.value = today;
 }
@@ -1678,8 +1678,8 @@ function displayMonthCalendar(shifts) {
                         return `
                         <div class="shift-item-mini ${getShiftClass(shift.shiftType)}" 
                              onclick="showShiftDetail('${shift.shiftId}')"
-                             title="${shift.employeeName} - ${shift.shiftType} (${startTime}-${endTime})">
-                            <div class="shift-item-name">${shift.employeeName}</div>
+                             title="${escapeHtml(shift.employeeName)} - ${escapeHtml(shift.shiftType)} (${startTime}-${endTime})">
+                            <div class="shift-item-name">${escapeHtml(shift.employeeName)}</div>
                             <div class="shift-item-time">${startTime}-${endTime}</div>
                         </div>
                     `}).join('')}
@@ -1791,7 +1791,7 @@ function displayShiftDistribution(shifts) {
         const percentage = (count / maxCount * 100).toFixed(0);
         html += `
             <div class="distribution-bar-item">
-                <div class="distribution-bar-label">${name}</div>
+                <div class="distribution-bar-label">${escapeHtml(name)}</div>
                 <div class="distribution-bar-container">
                     <div class="distribution-bar" style="width: ${percentage}%">
                         <div class="distribution-bar-value">${count} 班</div>

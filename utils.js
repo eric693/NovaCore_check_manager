@@ -1,0 +1,70 @@
+// 共用小工具：本地日期、HTML 跳脫、正式版的 log 控制
+// 這支要在其他腳本之前載入。
+
+// ===== 除錯輸出 =====
+// 正式環境把 console.log/debug/info 關掉：原本會印出 token 前綴、部門、
+// 薪資欄位等資訊。warn 與 error 保留，出事時仍看得到。
+const DEBUG_MODE = (() => {
+    try {
+        if (localStorage.getItem('debug') === '1') return true;
+    } catch {}
+    return ['localhost', '127.0.0.1'].includes(location.hostname);
+})();
+
+if (!DEBUG_MODE) {
+    console.log = () => {};
+    console.debug = () => {};
+    console.info = () => {};
+}
+
+// ===== 本地日期 =====
+// toISOString() 是 UTC，台灣時間 00:00-08:00 之間切出來的日期會變成前一天，
+// 早班與大夜班的「今日排班」「今天」因此全部抓錯，所以一律走這兩個函式。
+
+/**
+ * 依使用者所在時區把 Date 轉成 YYYY-MM-DD
+ */
+function toLocalDateStr(date = new Date()) {
+    const d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) return '';
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * 今天（本地時區）的 YYYY-MM-DD
+ */
+function todayStr() {
+    return toLocalDateStr(new Date());
+}
+
+// ===== HTML 跳脫 =====
+// 公告內容、請假／加班原因、姓名等都是使用者填的，直接內插進 innerHTML
+// 會變成儲存型 XSS——員工在原因欄放 <img onerror> 就能在管理員的瀏覽器執行。
+
+/**
+ * 跳脫 HTML 特殊字元，用於內插進 innerHTML 的文字
+ */
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value).replace(/[&<>"']/g, c => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[c]));
+}
+
+/**
+ * 要放進 onclick="fn('...')" 這種行內事件的字串。
+ * 屬性值會先被 HTML 解碼再交給 JS 解析，所以要先做 JS 字串跳脫再做 HTML 跳脫，
+ * 否則姓名裡的單引號就能跳出字串執行任意程式碼。
+ */
+function escapeJsAttr(value) {
+    const js = String(value === null || value === undefined ? '' : value)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\r?\n/g, '\\n');
+    return escapeHtml(js);
+}
