@@ -97,3 +97,29 @@ function generalButtonState(button, state, loadingText) {
         }
     }
 }
+
+// ===== DOM 小幫手 =====
+// script.js 同時被 index.html 與 salary.html 載入，但登入相關的元素只有 index.html 有。
+// 直接 document.getElementById(...).textContent = ... 會在 salary.html 丟 TypeError，
+// 而且是在 DOMContentLoaded 裡面丟，後面的初始化會整段中止。
+
+/** 設定元素文字；元素不存在就跳過 */
+function setElementText(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+    return el;
+}
+
+/** 設定元素的 style.display；元素不存在就跳過 */
+function setElementDisplay(id, display) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = display;
+    return el;
+}
+
+/** 設定圖片來源；元素不存在就跳過 */
+function setElementSrc(id, src) {
+    const el = document.getElementById(id);
+    if (el) el.src = src;
+    return el;
+}

@@ -851,5 +851,18 @@
     "NOTIF_USER_DELETED": "「{name}」を削除しました。",
     "NOTIF_NAME_UPDATED": "氏名を「{name}」に更新しました。",
     "NOTIF_QR_PUNCH_OK": "QR 打刻に成功しました。{detail}",
-    "NOTIF_QR_GENERATED": "QR コードを生成しました。{minutes} 分間有効です。"
+    "NOTIF_QR_GENERATED": "QR コードを生成しました。{minutes} 分間有効です。",
+    "PAYSLIP_TITLE": "給与明細書",
+    "PAYSLIP_PRINT_BTN": "給与明細を印刷",
+    "PAYSLIP_EMPLOYEE": "従業員",
+    "PAYSLIP_EMPLOYEE_ID": "従業員番号",
+    "PAYSLIP_PERIOD": "給与期間",
+    "PAYSLIP_ISSUED_AT": "発行日時",
+    "PAYSLIP_SIGNATURE": "従業員署名",
+    "PAYSLIP_CONFIDENTIAL": "本書には個人の給与情報が含まれます。適切に保管し、転送しないでください。",
+    "PAYSLIP_NO_DATA": "印刷できる給与データがありません。先に計算してください。",
+    "PAYSLIP_POPUP_BLOCKED": "印刷ウィンドウがブロックされました。ポップアップを許可してから再試行してください。",
+    "SALARY_HOLIDAY_WORK_PAY": "祝日出勤手当",
+    "SALARY_RECORD_AUTO_SAVED": "給与明細を自動保存しました。",
+    "ERR_DUPLICATE_ADJUST_PUNCH": "⚠️ その日はすでに承認待ちの打刻修正があります。承認後に再度申請してください。"
 }

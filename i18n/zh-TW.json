@@ -892,5 +892,17 @@
     "NOTIF_USER_DELETED": "已成功刪除「{name}」",
     "NOTIF_NAME_UPDATED": "姓名已更新為「{name}」",
     "NOTIF_QR_PUNCH_OK": "QR 打卡成功！{detail}",
-    "NOTIF_QR_GENERATED": "QR Code 已產生，{minutes} 分鐘內有效"
+    "NOTIF_QR_GENERATED": "QR Code 已產生，{minutes} 分鐘內有效",
+    "PAYSLIP_TITLE": "薪資明細表",
+    "PAYSLIP_PRINT_BTN": "列印薪資明細",
+    "PAYSLIP_EMPLOYEE": "員工",
+    "PAYSLIP_EMPLOYEE_ID": "員工編號",
+    "PAYSLIP_PERIOD": "薪資期間",
+    "PAYSLIP_ISSUED_AT": "產生時間",
+    "PAYSLIP_SIGNATURE": "員工簽收",
+    "PAYSLIP_CONFIDENTIAL": "本表含個人薪資資料，請妥善保管，勿轉傳他人。",
+    "PAYSLIP_NO_DATA": "沒有可列印的薪資資料，請先計算薪資",
+    "PAYSLIP_POPUP_BLOCKED": "列印視窗被瀏覽器阻擋，請允許彈出視窗後再試",
+    "SALARY_HOLIDAY_WORK_PAY": "國定假日出勤薪資",
+    "SALARY_RECORD_AUTO_SAVED": "薪資單已自動儲存"
 }

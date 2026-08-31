@@ -1026,9 +1026,8 @@ async function handleSalaryCalculation() {
             resultEl.style.display = 'block';
             showNotification(t('SALARY_CALC_SUCCESS'), 'success');
             
-            if (confirm('是否儲存此薪資單？')) {
-                await saveSalaryRecord(res.data);
-            }
+            // 算完直接存檔（要修正就重算覆蓋），不再多問一次
+            await saveSalaryRecord(res.data);
         } else {
             showNotification(t('SALARY_CALC_FAILED') + ': ' + (res.msg || t('UNKNOWN_ERROR')), 'error');
 
@@ -1045,6 +1044,9 @@ async function handleSalaryCalculation() {
  */
 function displaySalaryCalculation(data, container) {
     if (!container) return;
+    
+    // 記住這次的計算結果，列印薪資明細時直接用，不再向後端要一次
+    if (typeof setLastCalculatedSalary === 'function') setLastCalculatedSalary(data);
     
     // 計算扣款總額
     const totalDeductions = 
@@ -1078,6 +1080,12 @@ function displaySalaryCalculation(data, container) {
     const earlyLeaveDeduction = parseFloat(data.earlyLeaveDeduction || data['早退扣款']) || 0;
     container.innerHTML = `
         <div class="calculation-card">
+            <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
+                <button type="button" onclick="printPayslip()"
+                        class="tab-btn" style="padding:6px 14px;">
+                    ${escapeHtml(t('PAYSLIP_PRINT_BTN'))}
+                </button>
+            </div>
             <h3 class="text-xl font-bold mb-4">
                 ${data.employeeName || '--'} - ${data.yearMonth || '--'} 薪資計算結果
                 <span class="ml-2 px-3 py-1 text-sm rounded-full ${isHourly ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}">

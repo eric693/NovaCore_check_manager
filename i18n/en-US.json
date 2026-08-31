@@ -873,5 +873,18 @@
     "NOTIF_USER_DELETED": "{name} has been deleted.",
     "NOTIF_NAME_UPDATED": "The name is now {name}.",
     "NOTIF_QR_PUNCH_OK": "QR punch succeeded. {detail}",
-    "NOTIF_QR_GENERATED": "QR code generated, valid for {minutes} minutes."
+    "NOTIF_QR_GENERATED": "QR code generated, valid for {minutes} minutes.",
+    "PAYSLIP_TITLE": "Payslip",
+    "PAYSLIP_PRINT_BTN": "Print payslip",
+    "PAYSLIP_EMPLOYEE": "Employee",
+    "PAYSLIP_EMPLOYEE_ID": "Employee ID",
+    "PAYSLIP_PERIOD": "Pay period",
+    "PAYSLIP_ISSUED_AT": "Issued at",
+    "PAYSLIP_SIGNATURE": "Employee signature",
+    "PAYSLIP_CONFIDENTIAL": "This document contains personal salary data. Keep it secure and do not forward it.",
+    "PAYSLIP_NO_DATA": "No payslip data yet. Calculate the salary first.",
+    "PAYSLIP_POPUP_BLOCKED": "The print window was blocked. Allow pop-ups and try again.",
+    "SALARY_HOLIDAY_WORK_PAY": "Public holiday work pay",
+    "SALARY_RECORD_AUTO_SAVED": "The payslip was saved automatically.",
+    "ERR_DUPLICATE_ADJUST_PUNCH": "⚠️ A make-up punch request for that day is already pending. Wait for the review before filing another."
 }

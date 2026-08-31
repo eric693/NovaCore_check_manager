@@ -851,5 +851,18 @@
     "NOTIF_USER_DELETED": "{name} telah dihapus.",
     "NOTIF_NAME_UPDATED": "Nama diubah menjadi {name}.",
     "NOTIF_QR_PUNCH_OK": "Absen QR berhasil. {detail}",
-    "NOTIF_QR_GENERATED": "Kode QR dibuat, berlaku {minutes} menit."
+    "NOTIF_QR_GENERATED": "Kode QR dibuat, berlaku {minutes} menit.",
+    "PAYSLIP_TITLE": "Slip Gaji",
+    "PAYSLIP_PRINT_BTN": "Cetak slip gaji",
+    "PAYSLIP_EMPLOYEE": "Karyawan",
+    "PAYSLIP_EMPLOYEE_ID": "ID Karyawan",
+    "PAYSLIP_PERIOD": "Periode gaji",
+    "PAYSLIP_ISSUED_AT": "Diterbitkan pada",
+    "PAYSLIP_SIGNATURE": "Tanda tangan karyawan",
+    "PAYSLIP_CONFIDENTIAL": "Dokumen ini memuat data gaji pribadi. Simpan dengan aman dan jangan diteruskan.",
+    "PAYSLIP_NO_DATA": "Belum ada data gaji untuk dicetak. Hitung gaji dulu.",
+    "PAYSLIP_POPUP_BLOCKED": "Jendela cetak diblokir. Izinkan pop-up lalu coba lagi.",
+    "SALARY_HOLIDAY_WORK_PAY": "Upah kerja hari libur",
+    "SALARY_RECORD_AUTO_SAVED": "Slip gaji tersimpan otomatis.",
+    "ERR_DUPLICATE_ADJUST_PUNCH": "⚠️ Sudah ada pengajuan perbaikan absensi yang menunggu untuk hari itu. Tunggu hasilnya sebelum mengajukan lagi."
 }

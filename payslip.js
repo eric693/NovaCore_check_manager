@@ -1,0 +1,184 @@
+// 薪資明細表：把計算結果做成一張可列印（另存 PDF）的薪資單
+// 原本算完只有畫面上的卡片與試算表裡的一列，沒有能交給員工的單據。
+// 資料一律取自剛剛那次計算的回傳值，不重新向後端要，避免兩邊數字不一致。
+
+let lastCalculatedSalary = null;
+
+/**
+ * 記住最近一次的計算結果，供列印使用
+ */
+function setLastCalculatedSalary(data) {
+    lastCalculatedSalary = data || null;
+}
+
+function payslipMoney(value) {
+    const n = parseFloat(value) || 0;
+    return 'NT$ ' + Math.round(n).toLocaleString('en-US');
+}
+
+// 只列出金額不為 0 的項目，明細才不會被一堆 0 洗版
+function payslipRows(items) {
+    return items
+        .filter(([, value]) => (parseFloat(value) || 0) !== 0)
+        .map(([label, value]) => `
+            <tr>
+                <td>${escapeHtml(label)}</td>
+                <td class="amount">${payslipMoney(value)}</td>
+            </tr>`)
+        .join('');
+}
+
+/**
+ * 組出薪資明細表的 HTML
+ */
+function buildPayslipHtml(data) {
+    const num = v => parseFloat(v) || 0;
+    
+    const earnings = [
+        [t('SALARY_BASE'), data.baseSalary],
+        [t('SALARY_POSITION_ALLOWANCE'), data.positionAllowance],
+        [t('SALARY_MEAL_ALLOWANCE'), data.mealAllowance],
+        [t('SALARY_TRANSPORT_ALLOWANCE'), data.transportAllowance],
+        [t('SALARY_ATTENDANCE_BONUS'), data.attendanceBonus],
+        [t('SALARY_PERFORMANCE_BONUS'), data.performanceBonus],
+        [t('SALARY_OTHER_ALLOWANCES_LABEL'), data.otherAllowances],
+        [t('SALARY_WEEKDAY_OT'), data.weekdayOvertimePay],
+        [t('SALARY_REST_OT'), data.restdayOvertimePay],
+        [t('SALARY_HOLIDAY_OT'), data.holidayOvertimePay],
+        [t('SALARY_HOLIDAY_WORK_PAY') !== 'SALARY_HOLIDAY_WORK_PAY'
+            ? t('SALARY_HOLIDAY_WORK_PAY') : '國定假日出勤薪資', data.holidayWorkPay]
+    ];
+    
+    const deductions = [
+        [t('SALARY_LABOR_INS'), data.laborFee],
+        [t('SALARY_HEALTH_INS'), data.healthFee],
+        [t('SALARY_EMPLOYMENT_INS'), data.employmentFee],
+        [t('SALARY_PENSION'), data.pensionSelf],
+        [t('SALARY_TAX'), data.incomeTax],
+        [t('SALARY_LEAVE_DEDUCT'), data.leaveDeduction],
+        [t('SALARY_EARLY_LEAVE_DEDUCT'), data.earlyLeaveDeduction || data['早退扣款']],
+        [t('SALARY_WELFARE_FEE_LABEL'), data.welfareFee],
+        [t('SALARY_DORMITORY_FEE_LABEL'), data.dormitoryFee],
+        [t('SALARY_GROUP_INSURANCE_LABEL'), data.groupInsurance],
+        [t('SALARY_OTHER_DEDUCT'), data.otherDeductions]
+    ];
+    
+    const totalDeductions = deductions.reduce((sum, [, v]) => sum + num(v), 0);
+    const account = String(data.bankAccount || '');
+    // 明細會被列印出來，帳號只留末四碼
+    const maskedAccount = account ? account.slice(-4).padStart(account.length, '*') : '';
+    
+    const workHours = num(data.totalWorkHours);
+    const overtimeHours = num(data.totalOvertimeHours);
+    
+    return `<!DOCTYPE html>
+<html lang="${escapeHtml(currentLang || 'zh-TW')}">
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(t('PAYSLIP_TITLE'))} - ${escapeHtml(data.employeeName || '')} ${escapeHtml(data.yearMonth || '')}</title>
+<style>
+  body { font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif; color: #111; margin: 0; padding: 24px; }
+  .sheet { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: #555; font-size: 13px; margin-bottom: 16px; }
+  .meta { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
+  .meta td { padding: 4px 8px; border: 1px solid #ddd; }
+  .meta td:nth-child(odd) { background: #f5f5f5; width: 110px; color: #444; }
+  .cols { display: flex; gap: 16px; }
+  .col { flex: 1; }
+  h2 { font-size: 14px; margin: 0 0 6px; padding-bottom: 4px; border-bottom: 2px solid #333; }
+  table.items { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.items td { padding: 5px 6px; border-bottom: 1px solid #eee; }
+  td.amount { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.total td { border-top: 2px solid #333; border-bottom: 0; font-weight: 700; padding-top: 8px; }
+  .net { margin-top: 18px; padding: 12px 14px; background: #f0f4ff; border: 1px solid #c7d2fe; border-radius: 6px;
+         display: flex; justify-content: space-between; align-items: center; font-size: 16px; font-weight: 700; }
+  .sign { margin-top: 28px; display: flex; justify-content: space-between; font-size: 13px; color: #444; }
+  .sign span { border-top: 1px solid #999; padding-top: 6px; width: 45%; }
+  .foot { margin-top: 18px; font-size: 11px; color: #777; }
+  .no-print { margin: 0 auto 16px; max-width: 720px; }
+  .no-print button { font: inherit; padding: 8px 16px; border: 0; border-radius: 6px; background: #4f46e5; color: #fff; cursor: pointer; }
+  @media print { .no-print { display: none; } body { padding: 0; } }
+</style>
+</head>
+<body>
+<div class="no-print"><button onclick="window.print()">${escapeHtml(t('PAYSLIP_PRINT_BTN'))}</button></div>
+<div class="sheet">
+  <h1>${escapeHtml(t('PAYSLIP_TITLE'))}</h1>
+  <div class="sub">${escapeHtml(t('PAYSLIP_PERIOD'))}：${escapeHtml(data.yearMonth || '')}</div>
+  
+  <table class="meta">
+    <tr>
+      <td>${escapeHtml(t('PAYSLIP_EMPLOYEE'))}</td><td>${escapeHtml(data.employeeName || '')}</td>
+      <td>${escapeHtml(t('PAYSLIP_EMPLOYEE_ID'))}</td><td>${escapeHtml(data.employeeId || '')}</td>
+    </tr>
+    <tr>
+      <td>${escapeHtml(t('SALARY_TYPE_LABEL'))}</td><td>${escapeHtml(data.salaryType || '')}</td>
+      <td>${escapeHtml(t('WORK_HOURS_LABEL'))}</td><td>${workHours ? workHours.toFixed(1) : '-'}</td>
+    </tr>
+    <tr>
+      <td>${escapeHtml(t('STATS_OVERTIME_HOURS'))}</td><td>${overtimeHours ? overtimeHours.toFixed(1) : '-'}</td>
+      <td>${escapeHtml(t('SALARY_ACCOUNT'))}</td><td>${escapeHtml(maskedAccount || '-')}</td>
+    </tr>
+  </table>
+  
+  <div class="cols">
+    <div class="col">
+      <h2>${escapeHtml(t('SALARY_EARNINGS'))}</h2>
+      <table class="items">
+        ${payslipRows(earnings)}
+        <tr class="total">
+          <td>${escapeHtml(t('SALARY_GROSS'))}</td>
+          <td class="amount">${payslipMoney(data.grossSalary)}</td>
+        </tr>
+      </table>
+    </div>
+    <div class="col">
+      <h2>${escapeHtml(t('SALARY_DEDUCTIONS_DETAIL'))}</h2>
+      <table class="items">
+        ${payslipRows(deductions)}
+        <tr class="total">
+          <td>${escapeHtml(t('SALARY_DEDUCTIONS'))}</td>
+          <td class="amount">${payslipMoney(totalDeductions)}</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+  
+  <div class="net">
+    <span>${escapeHtml(t('SALARY_NET'))}</span>
+    <span>${payslipMoney(data.netSalary)}</span>
+  </div>
+  
+  <div class="sign">
+    <span>${escapeHtml(t('PAYSLIP_SIGNATURE'))}</span>
+    <span>${escapeHtml(t('PAYSLIP_ISSUED_AT'))}：${escapeHtml(new Date().toLocaleString())}</span>
+  </div>
+  
+  <div class="foot">${escapeHtml(t('PAYSLIP_CONFIDENTIAL'))}</div>
+</div>
+</body>
+</html>`;
+}
+
+/**
+ * 開新視窗顯示薪資明細，使用者可直接列印或另存 PDF
+ */
+function printPayslip(data) {
+    const salary = data || lastCalculatedSalary;
+    if (!salary) {
+        showNotification(t('PAYSLIP_NO_DATA'), 'error');
+        return;
+    }
+    
+    const win = window.open('', '_blank');
+    if (!win) {
+        // 多半是被彈出視窗封鎖擋掉
+        showNotification(t('PAYSLIP_POPUP_BLOCKED'), 'error');
+        return;
+    }
+    
+    win.document.open();
+    win.document.write(buildPayslipHtml(salary));
+    win.document.close();
+}

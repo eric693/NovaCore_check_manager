@@ -851,5 +851,18 @@
     "NOTIF_USER_DELETED": "「{name}」을(를) 삭제했습니다.",
     "NOTIF_NAME_UPDATED": "이름을 「{name}」(으)로 변경했습니다.",
     "NOTIF_QR_PUNCH_OK": "QR 기록이 완료되었습니다. {detail}",
-    "NOTIF_QR_GENERATED": "QR 코드를 만들었습니다. {minutes}분간 유효합니다."
+    "NOTIF_QR_GENERATED": "QR 코드를 만들었습니다. {minutes}분간 유효합니다.",
+    "PAYSLIP_TITLE": "급여 명세서",
+    "PAYSLIP_PRINT_BTN": "급여 명세서 인쇄",
+    "PAYSLIP_EMPLOYEE": "직원",
+    "PAYSLIP_EMPLOYEE_ID": "직원 번호",
+    "PAYSLIP_PERIOD": "급여 기간",
+    "PAYSLIP_ISSUED_AT": "발행 일시",
+    "PAYSLIP_SIGNATURE": "직원 서명",
+    "PAYSLIP_CONFIDENTIAL": "이 문서에는 개인 급여 정보가 포함되어 있습니다. 안전하게 보관하고 전달하지 마세요.",
+    "PAYSLIP_NO_DATA": "인쇄할 급여 자료가 없습니다. 먼저 계산하세요.",
+    "PAYSLIP_POPUP_BLOCKED": "인쇄 창이 차단되었습니다. 팝업을 허용한 뒤 다시 시도하세요.",
+    "SALARY_HOLIDAY_WORK_PAY": "공휴일 근무 수당",
+    "SALARY_RECORD_AUTO_SAVED": "급여 명세서를 자동 저장했습니다.",
+    "ERR_DUPLICATE_ADJUST_PUNCH": "⚠️ 해당 날짜에 이미 승인 대기 중인 정정 신청이 있습니다. 심사 후 다시 신청하세요."
 }

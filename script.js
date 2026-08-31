@@ -163,16 +163,16 @@ async function ensureLogin()
         
         // 直接顯示 UI（不等待 API）
         if (user.dept === "管理員") {
-          document.getElementById('tab-admin-btn').style.display = 'block';
+          setElementDisplay('tab-admin-btn', 'block');
         }
         
-        document.getElementById("user-name").textContent = user.name;
-        document.getElementById("profile-img").src = user.picture;
+        setElementText("user-name", user.name);
+        setElementSrc("profile-img", user.picture);
         localStorage.setItem("sessionUserId", user.userId);
         
-        document.getElementById('login-section').style.display = 'none';
-        document.getElementById('user-header').style.display = 'flex';
-        document.getElementById('main-app').style.display = 'block';
+        setElementDisplay('login-section', 'none');
+        setElementDisplay('user-header', 'flex');
+        setElementDisplay('main-app', 'block');
         
         // 背景驗證（不阻塞 UI）
         checkSessionInBackground(token);
@@ -185,7 +185,7 @@ async function ensureLogin()
       }
       
       // 快取過期或不存在，正常流程
-      document.getElementById("status").textContent = t("CHECKING_LOGIN");
+      setElementText("status", t("CHECKING_LOGIN"));
       
       try {
         const res = await callApifetch("initApp");
@@ -198,18 +198,18 @@ async function ensureLogin()
           localStorage.setItem("cacheTime", Date.now().toString());
           
           if (res.user.dept === "管理員") {
-            document.getElementById('tab-admin-btn').style.display = 'block';
+            setElementDisplay('tab-admin-btn', 'block');
           }
           
-          document.getElementById("user-name").textContent = res.user.name;
-          document.getElementById("profile-img").src = res.user.picture || res.user.rate;
+          setElementText("user-name", res.user.name);
+          setElementSrc("profile-img", res.user.picture || res.user.rate);
           localStorage.setItem("sessionUserId", res.user.userId);
           
           showNotification(t("LOGIN_SUCCESS"));
           
-          document.getElementById('login-section').style.display = 'none';
-          document.getElementById('user-header').style.display = 'flex';
-          document.getElementById('main-app').style.display = 'block';
+          setElementDisplay('login-section', 'none');
+          setElementDisplay('user-header', 'flex');
+          setElementDisplay('main-app', 'block');
           
           renderAbnormalRecords(res.abnormalRecords);
           
@@ -279,10 +279,10 @@ async function loadAbnormalRecordsInBackground() {
 }
   
 function showLoginUI() {
-    document.getElementById('login-btn').style.display = 'block';
+    setElementDisplay('login-btn', 'block');
     document.getElementById('user-header').style.display = 'none';
     document.getElementById('main-app').style.display = 'none';
-    document.getElementById("status").textContent = t("SUBTITLE_LOGIN");
+    setElementText("status", t("SUBTITLE_LOGIN"));
 }
 
 /**
@@ -1303,28 +1303,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     //  新增：綁定用戶管理按鈕
     const refreshUsersBtn = document.getElementById('refresh-users-btn');
     if (refreshUsersBtn) {
-        refreshUsersBtn.addEventListener('click', loadAllUsers);
+        refreshUsersBtn?.addEventListener('click', loadAllUsers);
     }
     const adjustTodayBtn = document.getElementById('adjust-today-btn');
     if (adjustTodayBtn) {
-        adjustTodayBtn.addEventListener('click', openAdjustTodayDialog);
+        adjustTodayBtn?.addEventListener('click', openAdjustTodayDialog);
     }
 
     const historyAdjustBtn = document.getElementById('history-adjust-btn');
     if (historyAdjustBtn) {
-        historyAdjustBtn.addEventListener('click', openHistoryAdjustDialog);
+        historyAdjustBtn?.addEventListener('click', openHistoryAdjustDialog);
     }
     //  新增：綁定搜尋功能
     const searchUsersInput = document.getElementById('search-users-input');
     if (searchUsersInput) {
-        searchUsersInput.addEventListener('input', (e) => {
+        searchUsersInput?.addEventListener('input', (e) => {
             filterUsersList(e.target.value);
         });
     }
 
     if (tabWorklogBtn) {
         // switchTab 內部已經會呼叫 initWorklogTab()，這裡不能再呼叫一次
-        tabWorklogBtn.addEventListener('click', () => switchTab('worklog-view'));
+        tabWorklogBtn?.addEventListener('click', () => switchTab('worklog-view'));
     }
     let pendingRequests = []; // 新增：用於快取待審核的請求
     
@@ -1648,7 +1648,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     
     // 處理 API 測試按鈕事件
-    document.getElementById('test-api-btn').addEventListener('click', async () => {
+    document.getElementById('test-api-btn')?.addEventListener('click', async () => {
         // 這裡替換成您想要測試的 API action 名稱
         const testAction = "testEndpoint";
         
@@ -1670,7 +1670,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     
-    getLocationBtn.addEventListener('click', () => {
+    getLocationBtn?.addEventListener('click', () => {
         if (!navigator.geolocation) {
             showNotification(t("ERROR_GEOLOCATION", { msg: t('ERROR_BROWSER_NOT_SUPPORTED') }), "error");
             return;
@@ -1726,7 +1726,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
     // 處理新增打卡地點
-    document.getElementById('add-location-btn').addEventListener('click', async () => {
+    document.getElementById('add-location-btn')?.addEventListener('click', async () => {
         const name = document.getElementById('location-name').value;
         const lat = document.getElementById('location-lat').value;
         const lng = document.getElementById('location-lng').value;
@@ -1932,15 +1932,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // 直接顯示介面
 
                 if (res.user.dept === "管理員") {
-                  document.getElementById('tab-admin-btn').style.display = 'block';
+                  setElementDisplay('tab-admin-btn', 'block');
                 }
 
-                document.getElementById("user-name").textContent = res.user.name;
-                document.getElementById("profile-img").src = res.user.picture;
+                setElementText("user-name", res.user.name);
+                setElementSrc("profile-img", res.user.picture);
 
-                document.getElementById('login-section').style.display = 'none';
-                document.getElementById('user-header').style.display = 'flex';
-                document.getElementById('main-app').style.display = 'block';
+                setElementDisplay('login-section', 'none');
+                setElementDisplay('user-header', 'flex');
+                setElementDisplay('main-app', 'block');
 
                 //  直接渲染異常記錄（資料已經在 res 裡）
                 if (res.abnormalRecords) {
@@ -1976,12 +1976,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     // 綁定按鈕事件
-    loginBtn.onclick = async () => {
+    if (loginBtn) loginBtn.onclick = async () => {
         const res = await callApifetch("getLoginUrl");
         if (res.url) window.location.href = res.url;
     };
     
-    logoutBtn.onclick = () => {
+    if (logoutBtn) logoutBtn.onclick = () => {
         localStorage.removeItem("sessionToken");
         window.location.href = "/NovaCore_check_manager"
     };
@@ -2022,11 +2022,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         return `${String(roundedHours).padStart(2, '0')}:${String(roundedMinutes).padStart(2, '0')}`;
     }
 
-    punchInBtn.addEventListener('click', () => doPunch("上班"));
-    punchOutBtn.addEventListener('click', () => doPunch("下班"));
+    punchInBtn?.addEventListener('click', () => doPunch("上班"));
+    punchOutBtn?.addEventListener('click', () => doPunch("下班"));
 
     // 處理補打卡表單
-    abnormalList.addEventListener('click', (e) => {
+    abnormalList?.addEventListener('click', (e) => {
         const button = e.target.closest('.adjust-btn');
         
         if (button) {
@@ -2128,7 +2128,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
 
-    adjustmentFormContainer.addEventListener('click', async (e) => {
+    adjustmentFormContainer?.addEventListener('click', async (e) => {
         const button = e.target.closest('#submit-adjust-btn');
         
         if (button) {
@@ -2210,26 +2210,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     const tabShiftBtn = document.getElementById('tab-shift-btn');
 
     // 在現有的分頁按鈕事件後面加入：
-    tabShiftBtn.addEventListener('click', () => {switchTab('shift-view');});
+    tabShiftBtn?.addEventListener('click', () => {switchTab('shift-view');});
 
 
-    tabSalaryBtn.addEventListener('click', () => {switchTab('salary-view');});
-    tabDashboardBtn.addEventListener('click', () => switchTab('dashboard-view'));
+    tabSalaryBtn?.addEventListener('click', () => {switchTab('salary-view');});
+    tabDashboardBtn?.addEventListener('click', () => switchTab('dashboard-view'));
     
-    tabLocationBtn.addEventListener('click', () => switchTab('location-view'));
-    tabMonthlyBtn.addEventListener('click', () => switchTab('monthly-view'));
-    tabOvertimeBtn.addEventListener('click', () => {
+    tabLocationBtn?.addEventListener('click', () => switchTab('location-view'));
+    tabMonthlyBtn?.addEventListener('click', () => switchTab('monthly-view'));
+    tabOvertimeBtn?.addEventListener('click', () => {
         switchTab('overtime-view');
         initOvertimeTab();
     });
 
     //  新增請假按鈕事件
-    tabLeaveBtn.addEventListener('click', () => {
+    tabLeaveBtn?.addEventListener('click', () => {
         switchTab('leave-view');
         initLeaveTab();
     });
 
-    tabAdminBtn.addEventListener('click', async () => {
+    tabAdminBtn?.addEventListener('click', async () => {
     
         // 獲取按鈕元素和處理中文字
         const button = tabAdminBtn;
@@ -2273,27 +2273,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     //  新增：綁定查詢按鈕
     const loadAnalysisBtn = document.getElementById('load-punch-analysis-btn');
     if (loadAnalysisBtn) {
-        loadAnalysisBtn.addEventListener('click', loadPunchAnalysis);
+        loadAnalysisBtn?.addEventListener('click', loadPunchAnalysis);
     }
     //  新增：綁定匯出按鈕
     const exportEmployeePunchBtn = document.getElementById('export-employee-punch-btn');
     if (exportEmployeePunchBtn) {
-        exportEmployeePunchBtn.addEventListener('click', exportEmployeePunchReport);
+        exportEmployeePunchBtn?.addEventListener('click', exportEmployeePunchReport);
     }
     // 月曆按鈕事件
-    document.getElementById('prev-month').addEventListener('click', () => {
+    document.getElementById('prev-month')?.addEventListener('click', () => {
         currentMonthDate.setMonth(currentMonthDate.getMonth() - 1);
         renderCalendar(currentMonthDate);
     });
     
-    document.getElementById('next-month').addEventListener('click', () => {
+    document.getElementById('next-month')?.addEventListener('click', () => {
         currentMonthDate.setMonth(currentMonthDate.getMonth() + 1);
         renderCalendar(currentMonthDate);
     });
 
     const exportAttendanceBtn = document.getElementById('export-attendance-btn');
     if (exportAttendanceBtn) {
-        exportAttendanceBtn.addEventListener('click', () => {
+        exportAttendanceBtn?.addEventListener('click', () => {
             exportAttendanceReport(currentMonthDate);
         });
     }
@@ -2308,7 +2308,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         adminExportMonthInput.value = defaultMonth;
         
         // 綁定按鈕點擊事件
-        adminExportAllBtn.addEventListener('click', () => {
+        adminExportAllBtn?.addEventListener('click', () => {
             const selectedMonth = adminExportMonthInput.value;
             
             if (!selectedMonth) {
@@ -2320,7 +2320,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
     // 語系切換事件
-    document.getElementById('language-switcher').addEventListener('change', (e) => {
+    document.getElementById('language-switcher')?.addEventListener('change', (e) => {
         const newLang = e.target.value;
         loadTranslations(newLang);
         // 取得當前顯示的標籤頁ID
@@ -2333,7 +2333,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     // 點擊日曆日期的事件監聽器
-    calendarGrid.addEventListener('click', (e) => {
+    calendarGrid?.addEventListener('click', (e) => {
         if (e.target.classList.contains('day-cell') && e.target.dataset.date) {
             const date = e.target.dataset.date;
             renderDailyRecords(date);
@@ -2343,7 +2343,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 在 DOMContentLoaded 中修改
     const submitAnnouncementBtn = document.getElementById('submit-announcement-btn');
     if (submitAnnouncementBtn) {
-        submitAnnouncementBtn.addEventListener('click', async () => {
+        submitAnnouncementBtn?.addEventListener('click', async () => {
             const title = document.getElementById('announcement-title').value.trim();
             const content = document.getElementById('announcement-content').value.trim();
             const priority = document.getElementById('announcement-priority').value;
@@ -2384,7 +2384,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     const saveBasicInfoBtn = document.getElementById('save-basic-info-btn');
     if (saveBasicInfoBtn) {
-        saveBasicInfoBtn.addEventListener('click', saveEmployeeBasicInfo);
+        saveBasicInfoBtn?.addEventListener('click', saveEmployeeBasicInfo);
         console.log(' 基本資料儲存按鈕已綁定');
     } else {
         console.warn(' 找不到基本資料儲存按鈕');
@@ -3405,56 +3405,6 @@ async function deleteAnnouncement(id) {
 /**
  *  初始化員工基本資料（自動載入）
  */
-async function initEmployeeBasicInfo() {
-    try {
-        console.log(' 初始化員工基本資料'); //  改這裡
-        
-        const token = localStorage.getItem('sessionToken');
-        if (!token) {
-            console.log(' 未登入，跳過載入'); //  改這裡
-            return;
-        }
-        
-        const loadingEl = document.getElementById('basic-info-loading');
-        const formEl = document.getElementById('basic-info-form');
-        
-        if (loadingEl) loadingEl.style.display = 'block';
-        if (formEl) formEl.style.display = 'none';
-        
-        const res = await callApifetch('getEmployeeBasicInfo');
-        
-        if (loadingEl) loadingEl.style.display = 'none';
-        if (formEl) formEl.style.display = 'block';
-        
-        if (res.ok && res.data) {
-            console.log(' 載入成功，填入資料'); //  改這裡
-            
-            // 填入表單
-            document.getElementById('employee-id-number').value = res.data.idNumber || '';
-            document.getElementById('employee-address').value = res.data.address || '';
-            document.getElementById('employee-phone').value = res.data.phone || '';
-            document.getElementById('employee-birthdate').value = res.data.birthDate || '';
-            
-            // 顯示最後更新時間
-            if (res.data.updatedAt) {
-                const updateTimeEl = document.getElementById('basic-info-update-time');
-                const updateTimeText = document.getElementById('update-time-text');
-                
-                if (updateTimeEl && updateTimeText) {
-                    const date = new Date(res.data.updatedAt);
-                    updateTimeText.textContent = date.toLocaleString('zh-TW');
-                    updateTimeEl.style.display = 'block';
-                }
-            }
-        } else {
-            console.log('ℹ 尚未填寫基本資料'); //  改這裡
-        }
-        
-    } catch (error) {
-        console.error(' initEmployeeBasicInfo 錯誤:', error); //  改這裡
-    }
-}
-
 /**
  *  初始化員工基本資料（自動載入）
  */
@@ -3470,6 +3420,9 @@ async function initEmployeeBasicInfo() {
         
         const loadingEl = document.getElementById('basic-info-loading');
         const formEl = document.getElementById('basic-info-form');
+        
+        // 這個表單只有 index.html 有，其他頁面直接跳過
+        if (!formEl) return;
         
         if (loadingEl) loadingEl.style.display = 'block';
         if (formEl) formEl.style.display = 'none';

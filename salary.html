@@ -1458,6 +1458,7 @@
     <script src="analytics.js"></script>
     <script src="biometric.js"></script>
     <script src="reports.js"></script>
+    <script src="payslip.js"></script>
     <script src="salary.js"></script>
     
     <script>
@@ -1854,9 +1855,8 @@
                     resultEl.style.display = 'block';
                     showNotification(' 薪資計算完成', 'success');
                     
-                    if (confirm('是否儲存此薪資單？')) {
-                        await saveSalaryRecord(res.data);
-                    }
+                    // 算完直接存檔（要修正就重算覆蓋），不再多問一次
+                    await saveSalaryRecord(res.data);
                 } else {
                     showNotification(' 計算失敗: ' + (res.msg || '未知錯誤'), 'error');
                 }
