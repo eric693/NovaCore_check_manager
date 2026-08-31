@@ -763,5 +763,7 @@
   "STATS_WORK_HOURS": "Attendance Hours",
   "STATS_NORMAL_HOURS": "Regular Clock-in Hours",
 
-  "SALARY_EARLY_LEAVE_DEDUCT": "Early Leave Deduction"
+  "SALARY_EARLY_LEAVE_DEDUCT": "Early Leave Deduction",
+    "LOCATION_PICKER_HINT": "After searching or getting your position, drag the marker on the map below to fine-tune the exact punch location.",
+    "LOCATION_PICKER_EMPTY": "The map appears after you search for a place or tap \"Get current location\""
 }

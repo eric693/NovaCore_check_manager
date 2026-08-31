@@ -782,6 +782,7 @@
   "STATS_WORK_HOURS": "出勤時數",
   "STATS_NORMAL_HOURS": "正常打卡時數",
 
-  "SALARY_EARLY_LEAVE_DEDUCT": "早退扣款"
-
+  "SALARY_EARLY_LEAVE_DEDUCT": "早退扣款",
+    "LOCATION_PICKER_HINT": "搜尋或取得位置後，可在下方地圖拖曳標記微調實際打卡位置。",
+    "LOCATION_PICKER_EMPTY": "搜尋地點或按「取得當前位置」後顯示地圖"
 }

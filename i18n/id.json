@@ -741,5 +741,7 @@
 
   "STATS_WORK_HOURS": "Jam Kehadiran",
   "STATS_NORMAL_HOURS": "Jam Absen Normal",
-  "SALARY_EARLY_LEAVE_DEDUCT": "Potongan Pulang Cepat"
+  "SALARY_EARLY_LEAVE_DEDUCT": "Potongan Pulang Cepat",
+    "LOCATION_PICKER_HINT": "Setelah mencari atau mengambil posisi, seret penanda pada peta di bawah untuk menyetel lokasi absen yang sebenarnya.",
+    "LOCATION_PICKER_EMPTY": "Peta muncul setelah Anda mencari lokasi atau menekan \"Ambil lokasi saat ini\""
 }

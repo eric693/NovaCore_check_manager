@@ -741,5 +741,7 @@
 
   "STATS_WORK_HOURS": "출근 시간",
   "STATS_NORMAL_HOURS": "정상 출퇴근 기록 시간",
-  "SALARY_EARLY_LEAVE_DEDUCT": "조퇴 공제"
+  "SALARY_EARLY_LEAVE_DEDUCT": "조퇴 공제",
+    "LOCATION_PICKER_HINT": "검색하거나 현재 위치를 받은 뒤, 아래 지도에서 마커를 끌어 실제 기록 위치를 미세 조정할 수 있습니다.",
+    "LOCATION_PICKER_EMPTY": "장소를 검색하거나 「현재 위치 가져오기」를 누르면 지도가 표시됩니다"
 }

@@ -789,5 +789,7 @@
   "STATS_WORK_HOURS": "Giờ chấm công",
   "STATS_NORMAL_HOURS": "Giờ chấm công bình thường",
 
-  "SALARY_EARLY_LEAVE_DEDUCT": "Khấu trừ về sớm"
+  "SALARY_EARLY_LEAVE_DEDUCT": "Khấu trừ về sớm",
+    "LOCATION_PICKER_HINT": "Sau khi tìm kiếm hoặc lấy vị trí, hãy kéo điểm đánh dấu trên bản đồ bên dưới để tinh chỉnh vị trí chấm công thực tế.",
+    "LOCATION_PICKER_EMPTY": "Bản đồ hiện ra sau khi bạn tìm địa điểm hoặc bấm \"Lấy vị trí hiện tại\""
 }

@@ -741,5 +741,7 @@
 
   "STATS_WORK_HOURS": "出勤時間",
   "STATS_NORMAL_HOURS": "通常打刻時間",
-  "SALARY_EARLY_LEAVE_DEDUCT": "早退控除"
+  "SALARY_EARLY_LEAVE_DEDUCT": "早退控除",
+    "LOCATION_PICKER_HINT": "検索または現在地取得のあと、下の地図でマーカーをドラッグして実際の打刻位置を微調整できます。",
+    "LOCATION_PICKER_EMPTY": "地点を検索するか「現在地を取得」を押すと地図が表示されます"
 }

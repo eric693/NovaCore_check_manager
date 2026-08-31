@@ -1557,16 +1557,18 @@ async function searchLocation(query) {
         return [];
     }
     
+    // 先限定台灣搜尋（門牌與路段的命中率較高），沒有結果再放寬到全球
+    const request = async (countryCode) => {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`
+            + `&limit=5&accept-language=zh-TW${countryCode ? '&countrycodes=' + countryCode : ''}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('搜尋失敗');
+        return await response.json();
+    };
+    
     try {
-        const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&accept-language=zh-TW`
-        );
-        
-        if (!response.ok) {
-            throw new Error('搜尋失敗');
-        }
-        
-        const results = await response.json();
+        let results = await request('tw');
+        if (!results.length) results = await request('');
         return results;
         
     } catch (error) {
@@ -1629,29 +1631,81 @@ function selectSearchResult(result) {
     if (addBtn) addBtn.disabled = false;
     if (resultsContainer) resultsContainer.classList.add('hidden');
     
-    // 更新地圖標記
-    if (mapInstance && marker) {
-        const coords = [parseFloat(result.lat), parseFloat(result.lon)];
-        currentCoords = coords;
-        mapInstance.setView(coords, 18);
-        marker.setLatLng(coords);
-        
-        // 更新圓形範圍
-        const radius = parseInt(document.getElementById('location-radius').value);
-        if (circle) {
-            circle.setLatLng(coords);
-            circle.setRadius(radius);
-        } else {
-            circle = L.circle(coords, {
-                color: 'blue',
-                fillColor: '#30f',
-                fillOpacity: 0.2,
-                radius: radius
-            }).addTo(mapInstance);
-        }
-    }
+    // 在下方小地圖標出這個點，之後可以拖曳微調
+    setPickerLocation(parseFloat(result.lat), parseFloat(result.lon));
     
-    showNotification('已選擇地點', 'success');
+    showNotification('已選擇地點，可拖曳地圖標記微調位置', 'success');
+}
+
+// ==================== 打卡地點選取器（可拖曳微調） ====================
+// 搜尋回來的座標是建物或路段中心，跟實際打卡的門口常差數十公尺，
+// 所以在「新增打卡地點」表單裡放一張小地圖，標記可以拖，圓圈即時跟著半徑走。
+
+let pickerMap = null;
+let pickerMarker = null;
+let pickerCircle = null;
+
+function pickerRadius() {
+    const slider = document.getElementById('location-radius');
+    return slider ? parseInt(slider.value) : 200;
+}
+
+// 把座標寫回表單欄位
+function writePickedCoords(lat, lng) {
+    const latInput = document.getElementById('location-lat');
+    const lngInput = document.getElementById('location-lng');
+    const addBtn = document.getElementById('add-location-btn');
+    if (latInput) latInput.value = lat.toFixed(6);
+    if (lngInput) lngInput.value = lng.toFixed(6);
+    if (addBtn) addBtn.disabled = false;
+}
+
+/**
+ * 在選取器地圖上標出座標；地圖第一次用到時才建立。
+ */
+function setPickerLocation(lat, lng) {
+    writePickedCoords(lat, lng);
+    
+    const el = document.getElementById('location-picker-map');
+    if (!el || typeof L === 'undefined') return;
+    
+    const coords = [lat, lng];
+    const radius = pickerRadius();
+    
+    if (!pickerMap) {
+        el.innerHTML = '';
+        el.classList.remove('flex', 'items-center', 'justify-center');
+        pickerMap = L.map(el).setView(coords, 18);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(pickerMap);
+        
+        pickerMarker = L.marker(coords, { draggable: true }).addTo(pickerMap);
+        pickerCircle = L.circle(coords, {
+            color: 'blue', fillColor: '#30f', fillOpacity: 0.2, radius: radius
+        }).addTo(pickerMap);
+        
+        // 拖曳結束就把新座標寫回欄位，圓圈也跟著移動
+        pickerMarker.on('drag', (e) => pickerCircle.setLatLng(e.target.getLatLng()));
+        pickerMarker.on('dragend', (e) => {
+            const p = e.target.getLatLng();
+            writePickedCoords(p.lat, p.lng);
+            showNotification(`已微調至 ${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}`, 'success');
+        });
+        // 點地圖也能直接改點位
+        pickerMap.on('click', (e) => setPickerLocation(e.latlng.lat, e.latlng.lng));
+        
+        setTimeout(() => pickerMap.invalidateSize(), 100);
+    } else {
+        pickerMap.setView(coords, Math.max(pickerMap.getZoom(), 17));
+        pickerMarker.setLatLng(coords);
+        pickerCircle.setLatLng(coords).setRadius(radius);
+    }
+}
+
+// 分頁切回管理員時，地圖是在隱藏狀態下建立的話尺寸會歪掉
+function refreshLocationPicker() {
+    if (pickerMap) setTimeout(() => pickerMap.invalidateSize(), 100);
 }
 
 // ==================== 範圍調整拉桿 ====================
@@ -1672,6 +1726,11 @@ function initRadiusSlider() {
         //  修正：先檢查 circle 是否存在
         if (circle && currentCoords) {
             circle.setRadius(parseInt(value));
+        }
+        
+        // 新增打卡地點的選取器地圖也要跟著改
+        if (pickerCircle) {
+            pickerCircle.setRadius(parseInt(value));
         }
     });
 }
@@ -2086,6 +2145,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             getLocationBtn.textContent = '已取得';
             addLocationBtn.disabled = false;
             
+            // 同步到新增地點的選取器地圖（可再拖曳微調）
+            setPickerLocation(lat, lng);
+            
             // 新增：更新地圖和圓形範圍
             if (mapInstance) {
                 const coords = [lat, lng];
@@ -2216,6 +2278,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             displayAdminAnnouncements();
             initAdminAnalysis();
             loadAllUsers();
+            refreshLocationPicker();
         } else if (tabId === 'overtime-view') {
             initOvertimeTab();
         } else if (tabId === 'leave-view') {
