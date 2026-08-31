@@ -1,0 +1,231 @@
+{
+  "ui": { "title": "How to use", "expand": "Expand", "collapse": "Collapse", "steps": "Steps", "notes": "Notes", "terms": "Glossary" },
+  "modules": {
+    "dashboard-view": {
+      "intro": "The page you open first every day: announcements, punch buttons, your personal profile, and any attendance exceptions the system found.",
+      "steps": [
+        "Tap \"Punch In\" when you arrive and \"Punch Out\" before you leave; both the time and your GPS location are recorded.",
+        "If your phone supports fingerprint or face recognition, tap \"Set up biometrics\" once to pair it, then punch with biometrics from then on.",
+        "If you forgot to punch or the time is wrong, submit a make-up punch request with a reason and wait for the administrator's approval.",
+        "Fill in your ID number, address, phone and birthday under \"My profile\" - payroll and insurance work needs them."
+      ],
+      "notes": [
+        "Punching requires location permission; if the browser blocks it, the punch fails or is recorded as an exception.",
+        "\"Attendance exceptions\" are detected automatically (missing punch, late, early leave). An approved make-up punch clears the exception.",
+        "Announcements are sorted by importance; red ones are important, please read them."
+      ],
+      "terms": [
+        ["Biometric punch", "Pairs this phone with your account so fingerprint or face recognition replaces the punch button. Location is still recorded."],
+        ["Make-up punch", "A punch entered after the fact; it only enters the attendance record once an administrator approves it."]
+      ]
+    },
+    "monthly-view": {
+      "intro": "See your whole month on a calendar: which days were normal, which had exceptions, and how much overtime you worked.",
+      "steps": [
+        "The four figures on top are this month's statistics; the calendar below colors each day by status.",
+        "Use \"<\" and \">\" to change month; tap a day to list all punch records for that day.",
+        "If a day's record is wrong, submit a make-up punch request right from that day's card."
+      ],
+      "notes": [
+        "Statistics are calculated live: refresh after a make-up punch or leave request is approved and the numbers update.",
+        "You only see your own records; supervisors and administrators see company-wide data."
+      ],
+      "terms": [
+        ["Exception days", "Days flagged for a missing punch-in or punch-out, lateness, early leave and so on."],
+        ["Normal days", "Days with both punches recorded at times that match your shift."]
+      ]
+    },
+    "location-view": {
+      "intro": "Check the location your phone is currently reporting - useful before punching if you are unsure the position is accurate.",
+      "steps": [
+        "Allow the browser to read your location; the map marks your current coordinates.",
+        "Compare \"Status\" and \"Coordinates\" to confirm you are inside the office or work site area.",
+        "If the position is clearly off, move near a window or outdoors, turn on GPS, and refresh."
+      ],
+      "notes": [
+        "Indoors or on Wi-Fi only, the error can reach several hundred meters - that is normal.",
+        "If a punch is rejected as out of range, check this page first, then report it to the administrator."
+      ]
+    },
+    "shift-view": {
+      "intro": "See your shift for today and the days ahead; editing shifts happens in shift management.",
+      "steps": [
+        "\"Today's shift\" shows today's shift type, working hours and location.",
+        "To add, adjust or batch-assign shifts, tap \"Enter shift management\" for the full page."
+      ],
+      "notes": [
+        "Regular employees can only view their own shifts; changes are made by administrators.",
+        "Shifts drive the late/early-leave rules, so report a wrong shift as soon as you spot it."
+      ]
+    },
+    "overtime-view": {
+      "intro": "Apply for overtime and track approval; approved hours feed into payroll.",
+      "steps": [
+        "Pick the overtime date and enter start and end times - the hours are calculated for you.",
+        "Explain the reason in the reason field (the more specific the better) and submit.",
+        "Check each request's status - pending, approved or rejected - under \"Overtime records\"."
+      ],
+      "notes": [
+        "Apply in advance or the same day where possible; requests filed long after the fact may be rejected.",
+        "Approved overtime cannot be edited or deleted by you - ask an administrator for corrections.",
+        "Hours are converted into overtime pay or compensatory leave using the statutory rates."
+      ],
+      "terms": [
+        ["Overtime hours", "End time minus start time, with no break deducted - subtract your break yourself before entering."],
+        ["Compensatory leave", "Overtime hours converted into leave hours, used later as \"Compensatory leave\" on the leave page."]
+      ]
+    },
+    "leave-view": {
+      "intro": "Check your remaining hours per leave type, submit leave requests, and track their progress.",
+      "steps": [
+        "Look at \"Leave balance\" first to confirm how many hours of that type are left.",
+        "Choose the leave type, dates and times - the hours are calculated - then write the reason.",
+        "Track the status under \"Leave records\"; a request still pending can be cancelled and resubmitted."
+      ],
+      "notes": [
+        "Annual and compensatory leave are capped by your balance; requests above the balance cannot be submitted.",
+        "Sick, bereavement and marriage leave may require supporting documents under company policy.",
+        "If you are already scheduled during the leave, confirm cover with your supervisor after approval."
+      ],
+      "terms": [
+        ["Annual leave", "Yearly paid leave granted by length of service; unused days are handled per company policy."],
+        ["Compensatory leave", "Leave earned from approved overtime hours, available until used up."]
+      ]
+    },
+    "salary-view": {
+      "intro": "The entry point for payroll; the actual payslips, settings and calculations live in the payroll system.",
+      "steps": [
+        "Tap \"Enter payroll system\" to open the full payroll page.",
+        "Employees can view their own payslips; administrators additionally see settings and calculation tools."
+      ],
+      "notes": [
+        "Payroll data is confidential - avoid leaving this page open in public or on shared devices.",
+        "If an amount looks wrong, compare it with your attendance and overtime records before contacting the administrator."
+      ]
+    },
+    "worklog-view": {
+      "intro": "Record a daily work log: what you did and how many hours it took.",
+      "steps": [
+        "Pick the date and enter the hours worked (decimals allowed, e.g. 8.5).",
+        "Describe the day's work in at least 10 characters - be specific.",
+        "After submitting, review past logs and their approval status in the records section below."
+      ],
+      "notes": [
+        "One log per day as a rule; a duplicate entry will overwrite the first or be returned.",
+        "Logged hours are entered by you and tracked separately from punch hours; the two need not match."
+      ]
+    },
+    "admin-view": {
+      "intro": "Administrators only: announcements, approvals, punch locations, attendance analysis and report exports all live here.",
+      "steps": [
+        "Publish announcements under \"Announcement management\"; set priority to \"Important\" so staff see it first.",
+        "Handle make-up punch and virtual card requests under \"Pending requests\"; overtime, leave and work logs have their own approval sections.",
+        "Add or adjust the allowed punch coordinates and radius under \"Punch locations\" - this directly decides whether staff can punch.",
+        "\"Attendance analysis\" shows overall hours and punch-time distribution; the report section exports Excel for HR or accounting."
+      ],
+      "notes": [
+        "Approvals affect attendance and payroll immediately; when rejecting, state the reason so the employee knows how to fix it.",
+        "Too small a radius blocks legitimate punches; too large defeats the purpose of location control.",
+        "Exported files contain personal and salary data - do not forward them outside the company."
+      ],
+      "terms": [
+        ["Virtual card", "An alternative punch method approved by an administrator when location punching is unavailable."],
+        ["Punch radius", "The distance in meters around the configured coordinates within which punching is allowed."]
+      ]
+    },
+    "view-tab": {
+      "intro": "Review the shifts assigned over a chosen period and confirm who works which shift each day.",
+      "steps": [
+        "Pick a month or date range and search; the table lists every shift in that period.",
+        "To change one shift, edit that row directly, or delete it and add it again."
+      ],
+      "notes": ["Shift changes affect late/early-leave rules and payroll, so finish adjustments before the shift day."]
+    },
+    "add-tab": {
+      "intro": "Add a single shift: employee, date, shift type and location.",
+      "steps": [
+        "Pick the employee and date, then the shift type - the hours fill in automatically.",
+        "Confirm the work location and submit, then check \"View shifts\" to see it listed."
+      ],
+      "notes": ["Two shifts for the same person on the same day conflict - check the day before adding."]
+    },
+    "batch-tab": {
+      "intro": "Assign shifts for several employees over a whole period at once - ideal for next month's regular roster.",
+      "steps": [
+        "Choose the date range and the shift type, then tick the employees to schedule.",
+        "Set which weekdays to schedule (for example Monday to Friday) and submit.",
+        "Afterwards spot-check a few days under \"View shifts\" to confirm the result."
+      ],
+      "notes": [
+        "Batch scheduling creates a lot of records - double-check the range and the people before submitting.",
+        "Public holidays and approved leave are not skipped automatically; review and adjust them yourself."
+      ]
+    },
+    "stats-tab": {
+      "intro": "Statistics for the roster: how many days each person is scheduled and whether shift types are evenly spread.",
+      "steps": [
+        "Pick the period and search; the chart and table update together.",
+        "If someone has clearly too many or too few shifts, go back to batch scheduling to rebalance."
+      ],
+      "notes": ["Only scheduled shifts are counted, not actual attendance - see the attendance records for that."]
+    },
+    "employee-salary": {
+      "intro": "Employees view their own payslip: base pay, allowances, overtime pay and deductions.",
+      "steps": [
+        "Pick the year and month to list that month's payslip details.",
+        "If an amount looks wrong, compare it with the same month's attendance and overtime records before contacting the administrator."
+      ],
+      "notes": ["Salary data is confidential - avoid opening or screenshotting it on shared devices."]
+    },
+    "salary-setting": {
+      "intro": "Administrators set each employee's pay terms: monthly or hourly, allowances, and labor/health insurance brackets.",
+      "steps": [
+        "Pick the employee, set the pay type (monthly or hourly) and the base amount.",
+        "Enter meal and attendance allowances plus the insurance and pension brackets, then save."
+      ],
+      "notes": [
+        "Settings apply to later payroll runs - confirm the effective month before changing them.",
+        "Use the officially published bracket tables; a wrong bracket produces wrong deductions."
+      ],
+      "terms": [
+        ["Monthly pay", "A fixed monthly salary; leave and absences are deducted pro rata from the daily rate."],
+        ["Hourly pay", "Pay based on actual hours worked, taken from the punch records."]
+      ]
+    },
+    "monthly-calc": {
+      "intro": "Calculate this month's pay for monthly-paid staff: attendance, overtime and leave produce the gross amount.",
+      "steps": [
+        "Pick the month and employee, run the calculation and review the result.",
+        "Confirm the attendance days, overtime hours and deductions, then save it as an official payslip."
+      ],
+      "notes": [
+        "Approve all make-up punches, overtime and leave for the month first, or the result will be short.",
+        "Recalculating the same month overwrites the previous result."
+      ]
+    },
+    "hourly-calc": {
+      "intro": "Calculate this month's pay for hourly staff; the hours come straight from the punch records.",
+      "steps": [
+        "Pick the month and employee - total attendance and overtime hours are filled in for you.",
+        "Verify the hours, then calculate and save."
+      ],
+      "notes": ["Missing punches make the hours too low - clear all make-up punch requests before calculating."]
+    },
+    "salary-list": {
+      "intro": "Look up the payslips already generated, as the basis for payment and reconciliation.",
+      "steps": [
+        "Pick a year and month; the list shows each employee's gross pay, deductions and net pay.",
+        "Export the report from here for reconciliation or for accounting."
+      ],
+      "notes": ["Do not delete a payslip that has already been paid - make an adjustment entry instead and keep the record."]
+    },
+    "bonus-records": {
+      "intro": "Records of the three-festival bonuses: how much was paid for Dragon Boat, Mid-Autumn and Lunar New Year.",
+      "steps": [
+        "Pick a year to see that year's bonus records.",
+        "Administrators can add or adjust amounts; employees only see their own."
+      ],
+      "notes": ["Festival bonuses are not part of regular salary calculation but are still income and appear in annual income data."]
+    }
+  }
+}

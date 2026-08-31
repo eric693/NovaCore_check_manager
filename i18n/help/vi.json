@@ -1,0 +1,231 @@
+{
+  "ui": { "title": "Hướng dẫn sử dụng", "expand": "Mở", "collapse": "Thu gọn", "steps": "Các bước", "notes": "Lưu ý", "terms": "Giải thích thuật ngữ" },
+  "modules": {
+    "dashboard-view": {
+      "intro": "Trang mở đầu mỗi ngày: thông báo, nút chấm công, thông tin cá nhân và các bất thường chấm công do hệ thống phát hiện.",
+      "steps": [
+        "Đến nơi làm việc bấm \"Chấm công vào\", trước khi về bấm \"Chấm công ra\"; hệ thống ghi cả thời gian và vị trí GPS.",
+        "Nếu điện thoại hỗ trợ vân tay hoặc khuôn mặt, bấm \"Thiết lập sinh trắc học\" một lần rồi dùng sinh trắc học để chấm công nhanh.",
+        "Quên chấm công hoặc sai giờ thì gửi \"Đề nghị bổ sung chấm công\", ghi rõ lý do và chờ quản trị viên duyệt.",
+        "Điền đủ số CMND/CCCD, địa chỉ, điện thoại và ngày sinh trong \"Thông tin cá nhân\" vì bộ phận lương và bảo hiểm cần dùng."
+      ],
+      "notes": [
+        "Chấm công cần quyền định vị; nếu trình duyệt chặn, thao tác sẽ thất bại hoặc bị ghi là bất thường.",
+        "\"Bất thường chấm công\" do hệ thống tự nhận định (thiếu chấm công, đi muộn, về sớm); khi đề nghị bổ sung được duyệt, mục này tự mất.",
+        "Thông báo sắp theo mức quan trọng; mục màu đỏ là thông báo quan trọng, hãy đọc kỹ."
+      ],
+      "terms": [
+        ["Chấm công sinh trắc học", "Liên kết điện thoại này với tài khoản để dùng vân tay hoặc khuôn mặt thay nút bấm; vị trí vẫn được ghi."],
+        ["Bổ sung chấm công", "Đề nghị ghi bù sau; chỉ vào dữ liệu chấm công khi quản trị viên duyệt."]
+      ]
+    },
+    "monthly-view": {
+      "intro": "Xem cả tháng chấm công trên lịch: ngày nào bình thường, ngày nào bất thường, làm thêm bao nhiêu giờ.",
+      "steps": [
+        "Bốn con số phía trên là thống kê tháng; lịch bên dưới tô màu trạng thái từng ngày.",
+        "Dùng \"<\" và \">\" để đổi tháng; bấm vào một ngày để xem toàn bộ lần chấm công hôm đó.",
+        "Nếu dữ liệu ngày đó sai, gửi đề nghị bổ sung ngay trong thẻ của ngày."
+      ],
+      "notes": [
+        "Thống kê tính theo thời gian thực: sau khi đề nghị bổ sung hoặc nghỉ phép được duyệt, tải lại là số liệu cập nhật.",
+        "Bạn chỉ xem được dữ liệu của mình; quản lý và quản trị viên mới xem được toàn công ty."
+      ],
+      "terms": [
+        ["Số ngày bất thường", "Số ngày bị đánh dấu vì thiếu chấm công vào/ra, đi muộn, về sớm..."],
+        ["Số ngày bình thường", "Số ngày có đủ chấm công vào ra và đúng giờ theo ca."]
+      ]
+    },
+    "location-view": {
+      "intro": "Kiểm tra vị trí điện thoại đang bắt được, dùng khi chưa chắc định vị có chính xác trước lúc chấm công.",
+      "steps": [
+        "Cho phép trình duyệt lấy vị trí; bản đồ sẽ đánh dấu toạ độ hiện tại.",
+        "Đối chiếu \"Trạng thái\" và \"Toạ độ\" để xác nhận bạn đang trong phạm vi công ty hoặc nơi làm việc.",
+        "Nếu vị trí lệch nhiều, ra gần cửa sổ hoặc ngoài trời, bật GPS rồi tải lại trang."
+      ],
+      "notes": [
+        "Trong nhà hoặc chỉ có Wi-Fi, sai số có thể tới vài trăm mét - đó là bình thường.",
+        "Nếu bị báo ngoài phạm vi, hãy xem trang này trước rồi báo quản trị viên."
+      ]
+    },
+    "shift-view": {
+      "intro": "Xem ca làm hôm nay và các ngày tới; việc chỉnh sửa ca nằm ở trang quản lý ca.",
+      "steps": [
+        "\"Ca hôm nay\" hiển thị loại ca, giờ làm và địa điểm.",
+        "Cần thêm, sửa hoặc xếp ca hàng loạt thì bấm \"Vào quản lý ca\"."
+      ],
+      "notes": [
+        "Nhân viên chỉ xem được ca của mình; việc thay đổi do quản trị viên thực hiện.",
+        "Ca làm ảnh hưởng tới việc tính đi muộn về sớm, thấy sai hãy báo ngay."
+      ]
+    },
+    "overtime-view": {
+      "intro": "Đăng ký làm thêm giờ và theo dõi phê duyệt; giờ được duyệt sẽ vào bảng lương.",
+      "steps": [
+        "Chọn ngày làm thêm, nhập giờ bắt đầu và kết thúc, hệ thống tự tính số giờ.",
+        "Ghi lý do càng cụ thể càng dễ duyệt rồi gửi đề nghị.",
+        "Xem trạng thái chờ duyệt / đã duyệt / bị từ chối ở mục \"Lịch sử làm thêm\"."
+      ],
+      "notes": [
+        "Nên đăng ký trước hoặc trong ngày; đề nghị quá muộn có thể không được duyệt.",
+        "Đề nghị đã duyệt bạn không tự sửa hay xoá được, cần chỉnh thì báo quản trị viên.",
+        "Số giờ được quy đổi thành tiền làm thêm hoặc nghỉ bù theo hệ số luật định."
+      ],
+      "terms": [
+        ["Số giờ làm thêm", "Giờ kết thúc trừ giờ bắt đầu, chưa trừ giờ nghỉ - hãy tự trừ trước khi nhập."],
+        ["Nghỉ bù", "Đổi giờ làm thêm thành giờ nghỉ, dùng sau này bằng loại \"Nghỉ bù làm thêm\" ở trang nghỉ phép."]
+      ]
+    },
+    "leave-view": {
+      "intro": "Xem số giờ còn lại của từng loại phép, gửi đơn nghỉ và theo dõi tiến độ.",
+      "steps": [
+        "Xem \"Số dư phép\" trước để biết loại phép định dùng còn bao nhiêu giờ.",
+        "Chọn loại phép, ngày giờ bắt đầu và kết thúc - hệ thống tính số giờ - rồi ghi lý do.",
+        "Sau khi gửi, theo dõi ở \"Lịch sử nghỉ phép\"; đơn còn chờ duyệt có thể huỷ và gửi lại."
+      ],
+      "notes": [
+        "Phép năm và nghỉ bù có giới hạn số dư; vượt số dư sẽ không gửi được.",
+        "Nghỉ ốm, nghỉ tang, nghỉ cưới... có thể phải nộp giấy tờ theo quy định công ty.",
+        "Nếu trong thời gian nghỉ đã có xếp ca, sau khi duyệt hãy xác nhận người thay với quản lý."
+      ],
+      "terms": [
+        ["Phép năm", "Ngày nghỉ hằng năm theo thâm niên; phần chưa dùng xử lý theo quy định công ty."],
+        ["Nghỉ bù làm thêm", "Ngày nghỉ đổi từ giờ làm thêm đã duyệt, dùng đến khi hết."]
+      ]
+    },
+    "salary-view": {
+      "intro": "Lối vào chức năng lương; bảng lương, thiết lập và tính toán nằm trong hệ thống quản lý lương.",
+      "steps": [
+        "Bấm \"Vào hệ thống quản lý lương\" để mở trang lương đầy đủ.",
+        "Nhân viên xem bảng lương của mình; quản trị viên xem thêm phần thiết lập và tính lương."
+      ],
+      "notes": [
+        "Dữ liệu lương là thông tin mật, tránh để mở trang này nơi công cộng hoặc trên máy dùng chung.",
+        "Nếu thấy số tiền bất thường, đối chiếu dữ liệu chấm công và làm thêm trước khi báo quản trị viên."
+      ]
+    },
+    "worklog-view": {
+      "intro": "Ghi nhật ký công việc hằng ngày: hôm nay làm gì và mất bao nhiêu giờ.",
+      "steps": [
+        "Chọn ngày và nhập số giờ làm việc (cho phép số thập phân, ví dụ 8.5).",
+        "Mô tả công việc ít nhất 10 ký tự, càng cụ thể càng tốt.",
+        "Sau khi gửi, xem nhật ký cũ và trạng thái duyệt ở phần bên dưới."
+      ],
+      "notes": [
+        "Nguyên tắc mỗi ngày một bản; nhập trùng sẽ ghi đè hoặc bị trả lại.",
+        "Số giờ do bạn tự khai, thống kê riêng với giờ chấm công và không nhất thiết trùng nhau."
+      ]
+    },
+    "admin-view": {
+      "intro": "Dành cho quản trị viên: thông báo, duyệt các đề nghị, thiết lập địa điểm chấm công, phân tích chấm công và xuất báo cáo.",
+      "steps": [
+        "Đăng thông báo ở \"Quản lý thông báo\"; việc quan trọng hãy đặt mức \"Quan trọng\".",
+        "Xử lý đề nghị bổ sung chấm công và thẻ ảo ở \"Đề nghị chờ duyệt\"; làm thêm, nghỉ phép, nhật ký công việc có khu duyệt riêng.",
+        "Thêm hoặc chỉnh toạ độ và bán kính cho phép ở \"Địa điểm chấm công\" - việc này quyết định nhân viên có chấm công được hay không.",
+        "\"Phân tích chấm công\" cho thấy tổng giờ làm và phân bố giờ chấm công; khu báo cáo xuất Excel cho nhân sự hoặc kế toán."
+      ],
+      "notes": [
+        "Duyệt xong là ảnh hưởng ngay tới chấm công và tính lương; khi từ chối hãy ghi rõ lý do.",
+        "Bán kính quá nhỏ khiến nhân viên không chấm được, quá lớn thì mất ý nghĩa kiểm soát vị trí.",
+        "Tệp xuất ra chứa thông tin cá nhân và lương, không chuyển ra ngoài công ty."
+      ],
+      "terms": [
+        ["Thẻ ảo", "Cách chấm công thay thế do quản trị viên duyệt khi không dùng được định vị."],
+        ["Bán kính chấm công", "Phạm vi khoảng cách (mét) quanh toạ độ đã đặt được phép chấm công."]
+      ]
+    },
+    "view-tab": {
+      "intro": "Xem kết quả xếp ca trong khoảng thời gian đã chọn, xác nhận ai làm ca nào mỗi ngày.",
+      "steps": [
+        "Chọn tháng hoặc khoảng ngày rồi tra cứu; bảng liệt kê toàn bộ ca trong kỳ.",
+        "Muốn sửa một ca thì sửa ngay trên dòng đó, hoặc xoá rồi thêm lại."
+      ],
+      "notes": ["Thay đổi ca ảnh hưởng tới việc tính đi muộn về sớm và tính lương, hãy hoàn tất trước ngày làm việc đó."]
+    },
+    "add-tab": {
+      "intro": "Thêm từng ca một: nhân viên, ngày, loại ca và địa điểm.",
+      "steps": [
+        "Chọn nhân viên và ngày, chọn loại ca thì giờ sẽ tự điền.",
+        "Xác nhận địa điểm rồi gửi, sau đó vào \"Xem xếp ca\" kiểm tra."
+      ],
+      "notes": ["Cùng một người trong cùng một ngày mà xếp trùng sẽ xung đột; hãy kiểm tra trước khi thêm."]
+    },
+    "batch-tab": {
+      "intro": "Xếp ca cho nhiều nhân viên trong cả một giai đoạn, phù hợp để lên lịch cố định cho tháng sau.",
+      "steps": [
+        "Chọn khoảng ngày và loại ca cần áp dụng, rồi tích chọn nhân viên.",
+        "Đặt các thứ trong tuần cần xếp (ví dụ thứ Hai đến thứ Sáu) và gửi.",
+        "Xong thì vào \"Xem xếp ca\" kiểm tra vài ngày cho chắc."
+      ],
+      "notes": [
+        "Thao tác này tạo rất nhiều dữ liệu; trước khi gửi hãy kiểm tra lại khoảng ngày và danh sách người.",
+        "Ngày lễ và ngày nghỉ đã duyệt không tự động bỏ qua, bạn phải tự kiểm tra và điều chỉnh."
+      ]
+    },
+    "stats-tab": {
+      "intro": "Thống kê xếp ca: mỗi người được xếp bao nhiêu ngày, các loại ca có đều không.",
+      "steps": [
+        "Chọn kỳ thống kê rồi tra cứu; biểu đồ và bảng cùng cập nhật.",
+        "Thấy ai bị xếp quá nhiều hoặc quá ít thì quay lại xếp ca hàng loạt để cân đối."
+      ],
+      "notes": ["Chỉ tính các ca đã xếp, không phải ngày công thực tế; số liệu thực tế xem ở dữ liệu chấm công."]
+    },
+    "employee-salary": {
+      "intro": "Nhân viên xem bảng lương của mình: lương cơ bản, phụ cấp, tiền làm thêm và các khoản trừ.",
+      "steps": [
+        "Chọn tháng cần xem, phần bên dưới liệt kê chi tiết lương tháng đó.",
+        "Nếu thấy số tiền bất thường, đối chiếu chấm công và làm thêm cùng tháng rồi báo quản trị viên."
+      ],
+      "notes": ["Lương là thông tin mật, tránh mở hoặc chụp màn hình trên thiết bị dùng chung."]
+    },
+    "salary-setting": {
+      "intro": "Quản trị viên thiết lập điều kiện lương từng người: lương tháng hay lương giờ, các phụ cấp và mức đóng bảo hiểm.",
+      "steps": [
+        "Chọn nhân viên, đặt hình thức trả lương (theo tháng hoặc theo giờ) và mức cơ bản.",
+        "Nhập phụ cấp ăn ca, chuyên cần cùng mức đóng bảo hiểm, hưu trí rồi lưu lại."
+      ],
+      "notes": [
+        "Thiết lập áp dụng ngay cho các kỳ tính lương sau; trước khi sửa hãy xác nhận tháng hiệu lực.",
+        "Mức đóng phải theo bảng do cơ quan quản lý công bố; nhập sai sẽ khiến khoản trừ sai."
+      ],
+      "terms": [
+        ["Lương tháng", "Lương cố định theo tháng; nghỉ phép và vắng mặt trừ theo tỷ lệ lương ngày."],
+        ["Lương giờ", "Tính theo số giờ làm thực tế, lấy từ dữ liệu chấm công."]
+      ]
+    },
+    "monthly-calc": {
+      "intro": "Tính lương tháng cho nhân viên hưởng lương tháng: lấy chấm công, làm thêm và nghỉ phép để ra số tiền phải trả.",
+      "steps": [
+        "Chọn tháng và nhân viên, bấm tính rồi xem kết quả thử.",
+        "Kiểm tra số ngày công, giờ làm thêm và các khoản trừ, sau đó lưu thành bảng lương chính thức."
+      ],
+      "notes": [
+        "Trước khi tính hãy duyệt hết đề nghị bổ sung chấm công, làm thêm và nghỉ phép của tháng, nếu không kết quả sẽ thiếu.",
+        "Tính lại cùng một tháng sẽ ghi đè kết quả cũ."
+      ]
+    },
+    "hourly-calc": {
+      "intro": "Tính lương tháng cho nhân viên hưởng lương giờ; số giờ lấy trực tiếp từ dữ liệu chấm công.",
+      "steps": [
+        "Chọn tháng và nhân viên, hệ thống hiển thị tổng giờ làm và giờ làm thêm của tháng.",
+        "Đối chiếu số giờ rồi tính và lưu."
+      ],
+      "notes": ["Thiếu chấm công sẽ làm số giờ thấp đi; hãy xử lý hết đề nghị bổ sung trước khi tính."]
+    },
+    "salary-list": {
+      "intro": "Tra cứu các bảng lương đã lập, làm căn cứ chi trả và đối chiếu.",
+      "steps": [
+        "Chọn tháng để tra cứu; danh sách hiện số phải trả, khoản trừ và thực lĩnh của từng người.",
+        "Cần đối chiếu hoặc gửi kế toán thì xuất báo cáo tại đây."
+      ],
+      "notes": ["Không xoá bảng lương đã chi trả; cần sửa thì lập điều chỉnh riêng và giữ lại dấu vết."]
+    },
+    "bonus-records": {
+      "intro": "Lịch sử thưởng ba dịp lễ (Đoan Ngọ, Trung Thu, Tết) đã chi.",
+      "steps": [
+        "Chọn năm để xem lịch sử thưởng của năm đó.",
+        "Quản trị viên có thể thêm hoặc chỉnh số tiền; nhân viên chỉ xem phần của mình."
+      ],
+      "notes": ["Thưởng lễ không tính vào lương thường kỳ nhưng vẫn là thu nhập và xuất hiện trong dữ liệu thu nhập cả năm."]
+    }
+  }
+}
