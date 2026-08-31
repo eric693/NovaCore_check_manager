@@ -8,8 +8,9 @@ let currentShifts = [];
 let allEmployees = [];
 let allLocations = [];
 let batchData = [];
-let translations = {}; //  新增：翻譯物件
-let currentLang = localStorage.getItem("lang") || "zh-TW"; //  新增：當前語言
+// 語系相關（translations / currentLang / t / loadTranslations / renderTranslations）
+// 已抽到共用的 i18n.js，請確保它在本檔之前載入。
+window.I18N_TITLE_KEY = 'SHIFT_PAGE_TITLE';
 
 //  新增：權限控制變數
 let currentUserRole = null;
@@ -20,74 +21,9 @@ let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth(); // 0-11
 let allMonthShifts = [];
 
-//  新增：翻譯函式
-function t(code, params = {}) {
-    let text = translations[code] || code;
-    
-    for (const key in params) {
-        let paramValue = params[key];
-        if (paramValue in translations) {
-            paramValue = translations[paramValue];
-        }
-        text = text.replace(`{${key}}`, paramValue);
-    }
-    return text;
-}
-
-//  新增：載入翻譯檔案
-async function loadTranslations(lang) {
-    try {
-        const res = await fetch(`https://eric693.github.io/NovaCore_check_manager/i18n/${lang}.json`);
-        if (!res.ok) {
-            throw new Error(`HTTP 錯誤: ${res.status}`);
-        }
-        translations = await res.json();
-        currentLang = lang;
-        localStorage.setItem("lang", lang);
-        renderTranslations();
-    } catch (err) {
-        console.error("載入語系失敗:", err);
-    }
-}
-
-//  新增：渲染翻譯
-function renderTranslations(container = document) {
-    if (container === document) {
-        document.title = t("SHIFT_PAGE_TITLE");
-    }
-
-    const elementsToTranslate = container.querySelectorAll('[data-i18n]');
-    elementsToTranslate.forEach(element => {
-        const key = element.getAttribute('data-i18n');
-        const translatedText = t(key);
-        
-        if (translatedText !== key) {
-            if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
-                element.placeholder = translatedText;
-            } else {
-                element.textContent = translatedText;
-            }
-        }
-    });
-
-    const selectElements = container.querySelectorAll('select');
-    selectElements.forEach(select => {
-        const options = select.querySelectorAll('option[data-i18n-option]');
-        options.forEach(option => {
-            const key = option.getAttribute('data-i18n-option');
-            if (key) {
-                const translatedText = t(key);
-                if (translatedText !== key) {
-                    option.textContent = translatedText;
-                }
-            }
-        });
-    });
-}
-
 // ========== 初始化 ==========
 document.addEventListener('DOMContentLoaded', async function() { 
-    await loadTranslations(currentLang);
+    await loadTranslations(detectLang());
     await loadUserPermissions();
     initializeTabs();
     loadEmployees();
@@ -1164,7 +1100,7 @@ async function loadShiftsWithMultipleEmployees(filters = {}) {
         listContainer.innerHTML = `<div class="empty-state"><div class="empty-state-icon"></div><p>${t('SHIFT_LOAD_ERROR')}</p></div>`;
     }
 }
-function handleBatchFile(file) {
+async function handleBatchFile(file) {
     const fileName = file.name.toLowerCase();
     
     if (fileName.endsWith('.csv')) {
@@ -1177,6 +1113,7 @@ function handleBatchFile(file) {
         reader.readAsText(file, 'UTF-8');
         
     } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+        await ensureLib('xlsx'); // 讀 Excel 時才載入 SheetJS
         const reader = new FileReader();
         reader.onload = function(e) {
             try {

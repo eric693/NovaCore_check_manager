@@ -599,6 +599,7 @@ async function rejectWorklog(logId) {
  * 匯出工作日誌報表（支援全部員工）
  */
 async function exportWorklogReport() {
+    await ensureLib('xlsx'); // 匯出時才載入 SheetJS
     const employeeSelect = document.getElementById('worklog-export-employee');
     const monthInput = document.getElementById('worklog-export-month');
     const exportBtn = document.getElementById('export-worklog-btn');

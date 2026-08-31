@@ -1,99 +1,15 @@
 // 使用 CDN 或絕對路徑來載入 JSON 檔案
 // 注意：本檔案需要依賴 config.js，請確保它在腳本之前被載入。
 
-let currentLang = localStorage.getItem("lang");
 let currentMonthDate = new Date();
-let translations = {};
 let monthDataCache = {}; // 新增：用於快取月份打卡資料
 let userId = localStorage.getItem("sessionUserId");
 let todayShiftCache = null; // 快取今日排班
 let weekShiftCache = null;  // 快取本週排班
 let _isPunching = false; 
-// 載入語系檔
-async function loadTranslations(lang) {
-    try {
-        const res = await fetch(`https://eric693.github.io/NovaCore_check_manager/i18n/${lang}.json`);
-        if (!res.ok) {
-            throw new Error(`HTTP 錯誤: ${res.status}`);
-        }
-        translations = await res.json();
-        currentLang = lang;
-        localStorage.setItem("lang", lang);
-        renderTranslations();
-    } catch (err) {
-        console.error("載入語系失敗:", err);
-    }
-}
+// 語系相關（translations / currentLang / t / loadTranslations / renderTranslations）
+// 已抽到共用的 i18n.js，請確保它在本檔之前載入。
 
-// 翻譯函式
-function t(code, params = {}) {
-    let text = translations[code] || code;
-    
-    // 檢查並替換參數中的變數
-    for (const key in params) {
-        // 在替換之前，先翻譯參數的值
-        let paramValue = params[key];
-        if (paramValue in translations) {
-            paramValue = translations[paramValue];
-        }
-        
-        text = text.replace(`{${key}}`, paramValue);
-    }
-    return text;
-}
-
-// renderTranslations 可接受一個容器參數
-function renderTranslations(container = document) {
-    // 翻譯網頁標題（只在整頁翻譯時執行）
-    if (container === document) {
-        document.title = t("APP_TITLE");
-    }
-
-    // 處理靜態內容：[data-i18n]
-    const elementsToTranslate = container.querySelectorAll('[data-i18n]');
-    elementsToTranslate.forEach(element => {
-        const key = element.getAttribute('data-i18n');
-        const translatedText = t(key);
-        
-        // 檢查翻譯結果是否為空字串，或是否回傳了原始鍵值
-        if (translatedText !== key) {
-            if (element.tagName === 'INPUT') {
-                element.placeholder = translatedText;
-            } else {
-                element.textContent = translatedText;
-            }
-        }
-    });
-
-    //  新增邏輯：處理動態內容的翻譯，使用 [data-i18n-key]
-    const dynamicElements = container.querySelectorAll('[data-i18n-key]');
-    dynamicElements.forEach(element => {
-        const key = element.getAttribute('data-i18n-key');
-        if (key) {
-             const translatedText = t(key);
-             
-             // 只有當翻譯結果不是原始鍵值時才進行更新
-             if (translatedText !== key) {
-                 element.textContent = translatedText;
-             }
-        }
-    });
-
-    //  新增：處理 select option 的翻譯
-    const selectElements = container.querySelectorAll('select');
-    selectElements.forEach(select => {
-        const options = select.querySelectorAll('option[data-i18n-option]');
-        options.forEach(option => {
-            const key = option.getAttribute('data-i18n-option');
-            if (key) {
-                const translatedText = t(key);
-                if (translatedText !== key) {
-                    option.textContent = translatedText;
-                }
-            }
-        });
-    });
-}
 /**
  * 透過 fetch API 呼叫後端 API。
  * @param {string} action - API 的動作名稱。
@@ -154,6 +70,7 @@ async function callApifetch(action, loadingId = "loading") {
  * @param {string} monthKey - 月份，格式: "YYYY-MM"
  */
 async function exportAllEmployeesReport(monthKey) {
+    await ensureLib('xlsx'); // 匯出時才載入 SheetJS
     const exportBtn = document.getElementById('admin-export-all-btn');
     const loadingText = t('EXPORT_LOADING') || '正在準備報表...';
     
@@ -280,6 +197,7 @@ async function exportAllEmployeesReport(monthKey) {
  * @param {Date} date - 要匯出的月份日期物件
  */
 async function exportAttendanceReport(date) {
+    await ensureLib('xlsx'); // 匯出時才載入 SheetJS
     const year = date.getFullYear();
     const month = date.getMonth() + 1;
     const monthKey = `${year}-${String(month).padStart(2, '0')}`;
@@ -1663,11 +1581,18 @@ function writePickedCoords(lat, lng) {
 /**
  * 在選取器地圖上標出座標；地圖第一次用到時才建立。
  */
-function setPickerLocation(lat, lng) {
+async function setPickerLocation(lat, lng) {
     writePickedCoords(lat, lng);
     
     const el = document.getElementById('location-picker-map');
-    if (!el || typeof L === 'undefined') return;
+    if (!el) return;
+    
+    try {
+        await ensureLib('leaflet');
+    } catch (err) {
+        console.error('地圖載入失敗:', err);
+        return;
+    }
     
     const coords = [lat, lng];
     const radius = pickerRadius();
@@ -1796,8 +1721,9 @@ document.addEventListener('DOMContentLoaded', async () => {
      * 從後端取得所有打卡地點，並將它們顯示在地圖上。
      */
     // 全域變數，用於儲存地點標記和圓形
-    let locationMarkers = L.layerGroup();
-    let locationCircles = L.layerGroup();
+    // Leaflet 改成延遲載入，所以圖層群組不能在這裡就建立
+    let locationMarkers = null;
+    let locationCircles = null;
     
     /**
      * 取得並渲染所有待審核的請求。
@@ -1962,7 +1888,12 @@ document.addEventListener('DOMContentLoaded', async () => {
      */
     async function fetchAndRenderLocationsOnMap() {
         try {
+            await ensureLib('leaflet');
             const res = await callApifetch("getLocations");
+            
+            // 第一次用到時才建立圖層群組
+            if (!locationMarkers) locationMarkers = L.layerGroup();
+            if (!locationCircles) locationCircles = L.layerGroup();
             
             // 清除舊的地點標記和圓形
             locationMarkers.clearLayers();
@@ -2000,7 +1931,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
     // 初始化地圖並取得使用者位置
-    function initLocationMap(forceReload = false){
+    async function initLocationMap(forceReload = false){
+        await ensureLib('leaflet'); // 切到定位分頁才載入 Leaflet
         const mapContainer = document.getElementById('map-container');
         const statusEl = document.getElementById('location-status');
         const coordsEl = document.getElementById('location-coords');
@@ -2334,39 +2266,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     // 語系初始化
-    let currentLang = localStorage.getItem("lang"); // 先從 localStorage 讀取上次的設定
-    
-    // 如果 localStorage 沒有紀錄，才根據瀏覽器設定判斷
-    if (!currentLang) {
-        const browserLang = navigator.language || navigator.userLanguage;
-        if (browserLang.startsWith("zh")) {
-            currentLang = "zh-TW";
-        } else if (browserLang.startsWith("ja")) {
-            currentLang = "ja"; // 建議使用 ja.json，所以這裡可以只用 'ja'
-        } else if (browserLang.startsWith("vi")) {
-            currentLang = "vi";
-        } else if (browserLang.startsWith("id")) {
-            currentLang = "id";
-        } else if (browserLang.startsWith("ko")) {
-            currentLang = "ko";
-        } else if (browserLang.startsWith("th")) {
-            currentLang = "th";
-        } else {
-            currentLang = "en-US";
-        }
-    }
-    // 在這裡設定語言切換器的值
-    document.getElementById('language-switcher').value = currentLang;
-    // 將最終確定的語言存入 localStorage 並載入翻譯
-    localStorage.setItem("lang", currentLang);
-    await loadTranslations(currentLang);
+    // 語系：沒有紀錄時由 i18n.js 依瀏覽器語言決定
+    const pageLang = detectLang();
+    const langSwitcher = document.getElementById('language-switcher');
+    if (langSwitcher) langSwitcher.value = pageLang;
+    await loadTranslations(pageLang);
     
     
     
     const params = new URLSearchParams(window.location.search);
     const otoken = params.get('code');
     const qrTokenFromUrl = params.get('qrToken');
-    const translationPromise = loadTranslations(currentLang);
 
     // LINE Bot 網頁打卡：無需登入，直接處理後結束
     if (params.get('linePunchToken')) {
@@ -3309,7 +3219,7 @@ async function loadPunchAnalysis() {
         
         if (res.ok && res.data && res.data.length > 0) {
             if (containerEl) containerEl.style.display = 'block';
-            renderCharts(res.data);
+            await renderCharts(res.data);
         } else {
             if (emptyEl) emptyEl.style.display = 'block';
         }
@@ -3324,7 +3234,8 @@ async function loadPunchAnalysis() {
 /**
  * 繪製圖表
  */
-function renderCharts(data) {
+async function renderCharts(data) {
+    await ensureLib('chart'); // 進到分析畫面才載入 Chart.js
     const dates = data.map(d => d.date.substring(5));
     const workHours = data.map(d => d.workHours || 0);
     const punchInTimes = data.map(d => d.punchIn ? timeToDecimal(d.punchIn) : null);
@@ -3460,6 +3371,7 @@ function renderPunchTimeChart(dates, punchInTimes, punchOutTimes) {
  * 匯出員工打卡報表（含時分秒和每日總時數）
  */
 async function exportEmployeePunchReport() {
+    await ensureLib('xlsx'); // 匯出時才載入 SheetJS
     const employeeSelect = document.getElementById('analysis-employee');
     const monthInput = document.getElementById('analysis-month');
     const exportBtn = document.getElementById('export-employee-punch-btn');
@@ -3674,8 +3586,37 @@ function timeToDecimal(timeStr) {
  * 檢查瀏覽器是否支援 WebAuthn
  */
 function checkBiometricSupport() {
-    return window.PublicKeyCredential !== undefined && 
+    // WebAuthn 只在 HTTPS（或 localhost）下可用，http 頁面連 API 都不會出現
+    return window.isSecureContext !== false &&
+           window.PublicKeyCredential !== undefined && 
            navigator.credentials !== undefined;
+}
+
+/**
+ * 這台裝置是否真的有內建的生物辨識可用。
+ * 只看 PublicKeyCredential 存不存在是不夠的：LINE 內建瀏覽器、
+ * 沒有 Windows Hello 的桌機都有這個 API，但實際呼叫一定失敗。
+ */
+async function checkPlatformAuthenticator() {
+    if (!checkBiometricSupport()) return false;
+    if (typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable !== 'function') return false;
+    try {
+        return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+    } catch (e) {
+        console.warn('平台驗證器偵測失敗:', e);
+        return false;
+    }
+}
+
+/**
+ * credential.id 是 base64url（用 - _ 且不補 =），atob 只吃標準 base64，
+ * 直接丟進去會在含 - 或 _ 的憑證上拋 InvalidCharacterError。
+ */
+function base64urlToBytes(value) {
+    const b64 = value.replace(/-/g, '+').replace(/_/g, '/')
+        .padEnd(Math.ceil(value.length / 4) * 4, '=');
+    const raw = atob(b64);
+    return Uint8Array.from(raw, c => c.charCodeAt(0));
 }
 
 /**
@@ -3691,11 +3632,19 @@ async function initBiometricPunch() {
     
     if (!setupBtn) return;
     
-    // 檢查支援度
+    // 檢查支援度：先看 API，再確認裝置真的有可用的生物辨識
     if (!checkBiometricSupport()) {
-        setupBtn.textContent = '您的瀏覽器不支援生物辨識';
+        setupBtn.textContent = '此瀏覽器不支援生物辨識打卡';
         setupBtn.disabled = true;
         setupBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        return;
+    }
+    
+    if (!await checkPlatformAuthenticator()) {
+        setupBtn.textContent = '此裝置沒有可用的生物辨識';
+        setupBtn.disabled = true;
+        setupBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        setupBtn.title = '請改用系統瀏覽器開啟，或在裝置設定中啟用指紋／臉部辨識';
         return;
     }
     
@@ -3738,7 +3687,16 @@ async function initBiometricPunch() {
             
         } catch (error) {
             console.error('生物辨識設定失敗:', error);
-            showNotification('設定失敗，請稍後再試', 'error');
+            
+            if (error.name === 'NotAllowedError') {
+                showNotification('您取消了設定，或裝置驗證逾時', 'warning');
+            } else if (error.name === 'InvalidStateError') {
+                showNotification('這台裝置已經註冊過，請直接使用生物辨識打卡', 'warning');
+            } else if (error.name === 'NotSupportedError' || error.name === 'SecurityError') {
+                showNotification('此瀏覽器無法使用生物辨識，請改用系統瀏覽器開啟', 'error');
+            } else {
+                showNotification('設定失敗，請稍後再試', 'error');
+            }
         }
     });
     
@@ -3801,6 +3759,20 @@ async function registerBiometric(userId) {
  * 使用生物辨識進行打卡
  */
 async function biometricPunch(type) {
+    // 驗證期間鎖住兩顆按鈕，避免使用者連按造成重複打卡
+    const bioBtns = [
+        document.getElementById('biometric-punch-in-btn'),
+        document.getElementById('biometric-punch-out-btn')
+    ].filter(Boolean);
+    const lockButtons = (locked) => bioBtns.forEach(b => {
+        b.disabled = locked;
+        b.classList.toggle('opacity-50', locked);
+        b.classList.toggle('cursor-not-allowed', locked);
+    });
+    
+    if (bioBtns.some(b => b.disabled)) return;
+    lockButtons(true);
+    
     try {
         const credentialId = localStorage.getItem('biometric_credential_id');
         const storedUserId = localStorage.getItem('biometric_user_id');
@@ -3827,10 +3799,18 @@ async function biometricPunch(type) {
         console.error('生物辨識打卡失敗:', error);
         
         if (error.name === 'NotAllowedError') {
-            showNotification('您取消了驗證', 'warning');
+            // 使用者取消，或憑證已經不在這台裝置上（換網域、清除瀏覽器資料）
+            showNotification('驗證未通過；若持續失敗請重新設定生物辨識', 'warning');
+        } else if (error.name === 'InvalidCharacterError' || error.name === 'InvalidStateError') {
+            // 憑證資料已經不能用，直接清掉讓使用者重新設定
+            console.warn('憑證失效，重置生物辨識設定');
+            resetBiometric();
+            showNotification('生物辨識憑證已失效，請重新設定', 'error');
         } else {
             showNotification('驗證失敗，請使用一般打卡', 'error');
         }
+    } finally {
+        lockButtons(false);
     }
 }
 
@@ -3845,7 +3825,7 @@ async function verifyBiometric(credentialId) {
         const publicKeyCredentialRequestOptions = {
             challenge: challenge,
             allowCredentials: [{
-                id: Uint8Array.from(atob(credentialId), c => c.charCodeAt(0)),
+                id: base64urlToBytes(credentialId),
                 type: 'public-key'
             }],
             timeout: 60000,
@@ -3856,7 +3836,7 @@ async function verifyBiometric(credentialId) {
             publicKey: publicKeyCredentialRequestOptions
         });
         
-        return assertion !== null;
+        return !!assertion;
         
     } catch (error) {
         console.error('驗證失敗:', error);
@@ -3901,7 +3881,10 @@ async function doPunch(type) {
     const button = document.getElementById(punchButtonId);
     const loadingText = t('LOADING') || '處理中...';
 
-    if (!button) return;
+    if (!button) {
+        _isPunching = false; // 沒有按鈕也要放開鎖，否則之後再也打不了卡
+        return;
+    }
 
     generalButtonState(button, 'processing', loadingText);
     
