@@ -28,48 +28,7 @@ async function initOvertimeTab() {
 }
 
 const MAX_MONTHLY_OVERTIME = 46;      // 每月加班時數上限
-const HOLIDAY_CACHE_KEY = 'holidays_cache';
-const HOLIDAY_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 假日清單一天抓一次就夠
-
-// 國定假日清單由後端提供（GS/SalaryManagement.gs 的同一份），
-// 只靠星期判斷的話，落在平日的國定假日會被當成一般上班日，加班時數算成 0。
-let nationalHolidays = [];
-
-async function loadNationalHolidays() {
-    try {
-        const cached = JSON.parse(localStorage.getItem(HOLIDAY_CACHE_KEY) || 'null');
-        if (cached && Date.now() - cached.savedAt < HOLIDAY_CACHE_TTL_MS && Array.isArray(cached.holidays)) {
-            nationalHolidays = cached.holidays;
-            return;
-        }
-    } catch {}
-    
-    try {
-        const res = await callApifetch('getHolidays');
-        if (res.ok && Array.isArray(res.holidays)) {
-            nationalHolidays = res.holidays;
-            localStorage.setItem(HOLIDAY_CACHE_KEY, JSON.stringify({
-                savedAt: Date.now(),
-                holidays: res.holidays
-            }));
-        }
-    } catch (err) {
-        // 拿不到就退回只看星期，至少平日晚上的加班仍然算得出來
-        console.warn('取得國定假日清單失敗，改用星期判斷:', err);
-    }
-}
-
-/**
- * 這一天是不是「整天都算加班」：國定假日、例假日（週日）、休息日（週六）
- */
-function isFullDayOvertime(dateStr) {
-    if (!dateStr) return false;
-    if (nationalHolidays.includes(dateStr)) return true;
-    const day = new Date(`${dateStr}T00:00:00`).getDay();
-    return day === 0 || day === 6;
-}
-const OVERTIME_THRESHOLD_MIN = 19 * 60 + 30; // 加班起算：19:30（下班 19:00 + 30 分緩衝）
-const OVERTIME_UNIT_MIN = 30;                 // 每 30 分鐘計 0.5 小時
+// 國定假日相關（loadNationalHolidays / isFullDayOvertime）已移到 holidays.js
 
 /**
  * 載入員工的加班申請記錄（修改版 - 計算本月統計）

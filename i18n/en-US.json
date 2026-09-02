@@ -886,5 +886,6 @@
     "PAYSLIP_POPUP_BLOCKED": "The print window was blocked. Allow pop-ups and try again.",
     "SALARY_HOLIDAY_WORK_PAY": "Public holiday work pay",
     "SALARY_RECORD_AUTO_SAVED": "The payslip was saved automatically.",
-    "ERR_DUPLICATE_ADJUST_PUNCH": "⚠️ A make-up punch request for that day is already pending. Wait for the review before filing another."
+    "ERR_DUPLICATE_ADJUST_PUNCH": "⚠️ A make-up punch request for that day is already pending. Wait for the review before filing another.",
+    "LUNCH_BREAK_NOTE": "Counts working hours only (08:30-17:30, lunch 12:00-13:00 excluded); weekends and public holidays are not counted."
 }

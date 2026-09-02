@@ -864,5 +864,6 @@
     "PAYSLIP_POPUP_BLOCKED": "Jendela cetak diblokir. Izinkan pop-up lalu coba lagi.",
     "SALARY_HOLIDAY_WORK_PAY": "Upah kerja hari libur",
     "SALARY_RECORD_AUTO_SAVED": "Slip gaji tersimpan otomatis.",
-    "ERR_DUPLICATE_ADJUST_PUNCH": "⚠️ Sudah ada pengajuan perbaikan absensi yang menunggu untuk hari itu. Tunggu hasilnya sebelum mengajukan lagi."
+    "ERR_DUPLICATE_ADJUST_PUNCH": "⚠️ Sudah ada pengajuan perbaikan absensi yang menunggu untuk hari itu. Tunggu hasilnya sebelum mengajukan lagi.",
+    "LUNCH_BREAK_NOTE": "※ Hanya menghitung jam kerja (08:30-17:30, istirahat 12:00-13:00 dikurangi); akhir pekan dan hari libur tidak dihitung."
 }

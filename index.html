@@ -853,7 +853,7 @@
                                         <span data-i18n="UNIT_HOURS">小時</span>
                                     </p>
                                     <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                                        <span data-i18n="LUNCH_BREAK_NOTE">※ 已自動扣除午休時間 (12:00-13:00)</span>
+                                        <span data-i18n="LUNCH_BREAK_NOTE">※ 僅計算工作時段（08:30-17:30，已扣午休 12:00-13:00），例假日與國定假日不計</span>
                                     </p>
                                     <!-- 警告訊息 -->
                                     <div id="work-hours-warning" class="hidden mt-2 text-sm font-medium text-red-600 dark:text-red-400">
@@ -1699,6 +1699,7 @@
         <script src="utils.js"></script>
         <script src="libs.js"></script>
         <script src="i18n.js"></script>
+        <script src="holidays.js"></script>
         <script src="help.js"></script>
         <script src="script.js"></script>
         <script src="location-picker.js"></script>

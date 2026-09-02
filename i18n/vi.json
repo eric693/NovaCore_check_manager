@@ -920,5 +920,6 @@
     "SHIFT_DATE_LABEL": "Ngày",
     "SHIFT_EMPLOYEE_LABEL": "Nhân viên",
     "SHIFT_SELECT_EMPLOYEE": "Hãy chọn nhân viên",
-    "SHIFT_SELECT_TYPE": "Hãy chọn loại ca"
+    "SHIFT_SELECT_TYPE": "Hãy chọn loại ca",
+    "LUNCH_BREAK_NOTE": "※ Chỉ tính giờ trong ca làm (08:30-17:30, trừ nghỉ trưa 12:00-13:00); cuối tuần và ngày lễ không tính."
 }

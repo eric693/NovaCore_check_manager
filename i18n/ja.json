@@ -864,5 +864,6 @@
     "PAYSLIP_POPUP_BLOCKED": "印刷ウィンドウがブロックされました。ポップアップを許可してから再試行してください。",
     "SALARY_HOLIDAY_WORK_PAY": "祝日出勤手当",
     "SALARY_RECORD_AUTO_SAVED": "給与明細を自動保存しました。",
-    "ERR_DUPLICATE_ADJUST_PUNCH": "⚠️ その日はすでに承認待ちの打刻修正があります。承認後に再度申請してください。"
+    "ERR_DUPLICATE_ADJUST_PUNCH": "⚠️ その日はすでに承認待ちの打刻修正があります。承認後に再度申請してください。",
+    "LUNCH_BREAK_NOTE": "※ 勤務時間帯（08:30-17:30、昼休み 12:00-13:00 を除く）のみ計算し、休日と祝日は含みません。"
 }

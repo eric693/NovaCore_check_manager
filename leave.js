@@ -20,6 +20,8 @@ async function initLeaveTab() {
     leaveTabInitialized = true;
     
     try {
+        // 計算請假時數要跳過國定假日，清單有快取不會每次都打 API
+        await loadNationalHolidays();
         await loadLeaveBalance();
         await loadLeaveRecords();
         bindLeaveEventListeners();
@@ -82,102 +84,89 @@ async function refreshLeaveData() {
 }
 
 /**
- *  完全無限制版：計算工作時數（24小時制，不限制時段）
- * 
- * 修改內容：
- * 1. 移除 09:00-18:00 的時段限制
- * 2. 保留午休時間扣除（可選）
- * 3. 支援任意時段和跨日請假
+ *  計算請假時數
+ *
+ * 只計算落在「工作時段」內的時間，並跳過非工作日（週六日與國定假日）。
+ * 舊版是用牆上時鐘的時間差再扣午休，所以 9/9 08:30 到 9/11 17:30 會算成 54 小時
+ * （把兩個晚上也算進去），實際上三天事假應該是 3 × 8 = 24 小時。
+ *
+ * 工作時段設定在 config.js 的 API_CONFIG.workSchedule，
+ * 後端 GS/LeaveManagement.gs 有一份相同的設定，兩邊要一起改。
  */
+function toMinutesOfDay(hhmm) {
+    const [h, m] = String(hhmm).split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+}
+
+function workScheduleConfig() {
+    const cfg = (typeof API_CONFIG !== 'undefined' && API_CONFIG.workSchedule) || {};
+    return {
+        start: toMinutesOfDay(cfg.start || '08:30'),
+        end: toMinutesOfDay(cfg.end || '17:30'),
+        lunchStart: toMinutesOfDay(cfg.lunchStart || '12:00'),
+        lunchEnd: toMinutesOfDay(cfg.lunchEnd || '13:00')
+    };
+}
+
 function calculateWorkHours(startTime, endTime) {
     if (!startTime || !endTime) {
         return 0;
     }
-    
+
     const start = new Date(startTime);
     const end = new Date(endTime);
-    
-    // 檢查日期是否有效
+
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
         console.error(' 無效的日期格式');
         return 0;
     }
-    
-    // 檢查結束時間是否早於開始時間
+
     if (end <= start) {
         console.error(' 結束時間必須晚於開始時間');
         return 0;
     }
-    
-    console.log(' 開始計算工時:', {
-        start: start.toISOString(),
-        end: end.toISOString()
-    });
-    
-    //  午休時間設定（可選是否扣除）
-    const LUNCH_START = 12;         // 午休開始 12:00
-    const LUNCH_END = 13;           // 午休結束 13:00
-    const DEDUCT_LUNCH = true;      //  設為 false 可以不扣除午休
-    
-    // 計算總毫秒數
-    const totalMs = end - start;
-    
-    // 轉換為小時
-    let totalHours = totalMs / (1000 * 60 * 60);
-    
-    console.log(`   ⏱ 原始時數: ${totalHours.toFixed(2)} 小時`);
-    
-    //  扣除午休時間（如果啟用）
-    if (DEDUCT_LUNCH) {
-        // 計算跨越的天數
-        const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-        const endDate = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-        
-        let lunchHoursToDeduct = 0;
-        
-        // 遍歷每一天，檢查是否跨越午休時間
-        let currentDate = new Date(startDate);
-        
-        while (currentDate <= endDate) {
-            // 當天的午休開始和結束時間
-            const lunchStartTime = new Date(currentDate);
-            lunchStartTime.setHours(LUNCH_START, 0, 0, 0);
-            
-            const lunchEndTime = new Date(currentDate);
-            lunchEndTime.setHours(LUNCH_END, 0, 0, 0);
-            
-            // 計算請假時間與午休時間的交集
-            const overlapStart = start > lunchStartTime ? start : lunchStartTime;
-            const overlapEnd = end < lunchEndTime ? end : lunchEndTime;
-            
-            // 如果有交集，計算重疊的時間
-            if (overlapStart < overlapEnd) {
-                const overlapMs = overlapEnd - overlapStart;
-                const overlapHours = overlapMs / (1000 * 60 * 60);
-                lunchHoursToDeduct += overlapHours;
-                
-                console.log(`    ${currentDate.toLocaleDateString()} 扣除午休: ${overlapHours.toFixed(2)} 小時`);
-            }
-            
-            // 移到下一天
-            currentDate.setDate(currentDate.getDate() + 1);
+
+    const cfg = workScheduleConfig();
+    const overlap = (aStart, aEnd, bStart, bEnd) => Math.max(0, Math.min(aEnd, bEnd) - Math.max(aStart, bStart));
+
+    let totalMinutes = 0;
+    const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const lastDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+
+    while (cursor <= lastDay) {
+        const dateStr = toLocalDateStr(cursor);
+
+        // 例假日與國定假日不計入請假時數（holidays.js 提供清單，抓不到時只看星期）
+        if (typeof isNonWorkingDay === 'function' && isNonWorkingDay(dateStr)) {
+            cursor.setDate(cursor.getDate() + 1);
+            continue;
         }
-        
-        totalHours -= lunchHoursToDeduct;
-        
-        if (lunchHoursToDeduct > 0) {
-            console.log(`    總共扣除午休: ${lunchHoursToDeduct.toFixed(2)} 小時`);
+
+        // 這一天請假區間與工作時段的交集（都換算成當天的分鐘數）
+        const dayStart = new Date(cursor);
+        const dayEnd = new Date(cursor);
+        dayEnd.setHours(23, 59, 59, 999);
+
+        const from = start > dayStart ? start : dayStart;
+        const to = end < dayEnd ? end : dayEnd;
+        if (to <= from) {
+            cursor.setDate(cursor.getDate() + 1);
+            continue;
         }
+
+        const fromMin = from.getHours() * 60 + from.getMinutes();
+        const toMin = to.getHours() * 60 + to.getMinutes() + (to.getSeconds() >= 59 ? 1 : 0);
+
+        let minutes = overlap(fromMin, toMin, cfg.start, cfg.end);
+        // 午休不算請假
+        minutes -= overlap(Math.max(fromMin, cfg.start), Math.min(toMin, cfg.end), cfg.lunchStart, cfg.lunchEnd);
+
+        totalMinutes += Math.max(0, minutes);
+        cursor.setDate(cursor.getDate() + 1);
     }
-    
-    // 確保不會是負數
-    totalHours = Math.max(0, totalHours);
-    
-    // 四捨五入到小數點後 2 位
-    const finalHours = Math.round(totalHours * 100) / 100;
-    
-    console.log(`    最終工時: ${finalHours} 小時`);
-    
+
+    const finalHours = Math.round((totalMinutes / 60) * 100) / 100;
+    console.log(`    請假時數: ${finalHours} 小時`);
     return finalHours;
 }
 

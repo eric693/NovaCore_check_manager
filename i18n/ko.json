@@ -864,5 +864,6 @@
     "PAYSLIP_POPUP_BLOCKED": "인쇄 창이 차단되었습니다. 팝업을 허용한 뒤 다시 시도하세요.",
     "SALARY_HOLIDAY_WORK_PAY": "공휴일 근무 수당",
     "SALARY_RECORD_AUTO_SAVED": "급여 명세서를 자동 저장했습니다.",
-    "ERR_DUPLICATE_ADJUST_PUNCH": "⚠️ 해당 날짜에 이미 승인 대기 중인 정정 신청이 있습니다. 심사 후 다시 신청하세요."
+    "ERR_DUPLICATE_ADJUST_PUNCH": "⚠️ 해당 날짜에 이미 승인 대기 중인 정정 신청이 있습니다. 심사 후 다시 신청하세요.",
+    "LUNCH_BREAK_NOTE": "※ 근무 시간대(08:30-17:30, 점심 12:00-13:00 제외)만 계산하며 주말과 공휴일은 포함하지 않습니다."
 }

@@ -904,5 +904,6 @@
     "PAYSLIP_NO_DATA": "沒有可列印的薪資資料，請先計算薪資",
     "PAYSLIP_POPUP_BLOCKED": "列印視窗被瀏覽器阻擋，請允許彈出視窗後再試",
     "SALARY_HOLIDAY_WORK_PAY": "國定假日出勤薪資",
-    "SALARY_RECORD_AUTO_SAVED": "薪資單已自動儲存"
+    "SALARY_RECORD_AUTO_SAVED": "薪資單已自動儲存",
+    "LUNCH_BREAK_NOTE": "※ 僅計算工作時段（08:30-17:30，已扣午休 12:00-13:00），例假日與國定假日不計"
 }
