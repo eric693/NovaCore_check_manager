@@ -40,19 +40,19 @@ function writeEmployee_(profile) {
       const currentName = values[i][2];           // C 欄：displayName（目前顯示的姓名）
       const nameOverride = values[i][8] || "";    // I 欄：nameOverride（手動設定的姓名）
       
-      // 只在沒有手動設定姓名時才更新
-      if (!nameOverride) {
-        Logger.log(` 更新員工 ${profile.displayName} 的 LINE 姓名`);
-        sheet.getRange(i + 1, 3).setValue(profile.displayName);  // C 欄
-      } else {
-        Logger.log(` 保留員工 ${currentName} 的手動設定姓名（忽略 LINE 姓名：${profile.displayName}）`);
-        // 不更新姓名，保持原有的手動設定
-      }
+      // 只在沒有手動設定姓名時才更新；有手動設定就保持原有姓名
+      const name = nameOverride ? currentName : profile.displayName;
+      const email = profile.email || "";
+      const picture = profile.pictureUrl || "";
       
-      // 更新其他資訊（email, 頭像等）
-      sheet.getRange(i + 1, 2).setValue(profile.email || "");
-      sheet.getRange(i + 1, 4).setValue(profile.pictureUrl);
-      sheet.getRange(i + 1, 8).setValue("啟用");
+      // B~D 一次寫入，而且沒變就不寫（每次寫入都會拖慢登入）
+      if (values[i][1] !== email || values[i][2] !== name || values[i][3] !== picture) {
+        sheet.getRange(i + 1, 2, 1, 3).setValues([[email, name, picture]]);
+      }
+      if (values[i][7] !== "啟用") {
+        sheet.getRange(i + 1, 8).setValue("啟用");
+      }
+      invalidateEmployeeCache_(employeeId);
       
       Logger.log(` 更新員工資料完成（保留原有權限：${values[i][5]}）`);
       return values[i];
@@ -84,7 +84,30 @@ function writeEmployee_(profile) {
 /**
  *  修正版：優先使用手動設定的姓名
  */
+// 每個 API 都會經過 checkSession_ → 這裡，員工名單整張讀一次很浪費，
+// 結果快取一小段時間。改角色、改名、刪除員工時要呼叫 invalidateEmployeeCache_()。
+const EMPLOYEE_CACHE_SECONDS = 300;
+
+function invalidateEmployeeCache_(userId) {
+  try {
+    CacheService.getScriptCache().remove('emp_' + String(userId).trim());
+  } catch (e) {
+    Logger.log('invalidateEmployeeCache_ 失敗: ' + e);
+  }
+}
+
 function findEmployeeByLineUserId_(userId) {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'emp_' + String(userId).trim();
+  const cached = cache.get(cacheKey);
+  if (cached) return JSON.parse(cached);
+
+  const result = findEmployeeByLineUserIdUncached_(userId);
+  if (result.ok) cache.put(cacheKey, JSON.stringify(result), EMPLOYEE_CACHE_SECONDS);
+  return result;
+}
+
+function findEmployeeByLineUserIdUncached_(userId) {
   const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_EMPLOYEES);
   const values = sh.getDataRange().getValues();
 
@@ -147,6 +170,7 @@ function unlockEmployeeName(userId) {
         Logger.log(' 已解除姓名鎖定');
         Logger.log('   當前姓名: ' + currentName);
         Logger.log('   下次登入將使用 LINE 姓名');
+        invalidateEmployeeCache_(userId);
         
         return {
           ok: true,
@@ -314,10 +338,11 @@ function writeSession_(userId) {
   const now = new Date();
   const expiredAt = new Date(now.getTime() + SESSION_TTL_MS);
 
-  const range = sheet.getRange("B:B").createTextFinder(userId).findNext();
+  const range = sheet.getRange("B:B").createTextFinder(String(userId)).matchEntireCell(true).matchCase(true).findNext();
 
   if (range) {
     const row = range.getRow();
+    invalidateSessionCache_(sheet.getRange(row, 1).getValue());
     sheet.getRange(row, 1, 1, 4).setValues([[oneTimeToken, userId, now, expiredAt]]);
   } else {
     sheet.appendRow([oneTimeToken, userId, now, expiredAt]);
@@ -330,8 +355,11 @@ function writeSession_(userId) {
  */
 function verifyOneTimeToken_(otoken) {
   const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_SESSION);
-  const range = sheet.getRange("A:A").createTextFinder(otoken).findNext();
-  if (!range) return null;
+  // 一定要完全相符：TextFinder 預設是「包含」，otoken=1 就會比對到任何含 1 的 token，
+  // 等於不用登入就能換到別人的 session
+  if (!otoken || String(otoken).length < 32) return null;
+  const range = sheet.getRange("A:A").createTextFinder(String(otoken)).matchEntireCell(true).matchCase(true).findNext();
+  if (!range || range.getRow() < 2) return null;
 
   const row = range.getRow();
   const sessionToken = Utilities.getUuid();
@@ -339,6 +367,7 @@ function verifyOneTimeToken_(otoken) {
   const expiredAt = new Date(now.getTime() + SESSION_TTL_MS);
   const userId = sheet.getRange(row, 2).getValue();
 
+  invalidateSessionCache_(otoken);
   sheet.getRange(row, 1, 1, 4).setValues([[sessionToken, userId, now, expiredAt]]);
   return sessionToken;
 }
@@ -346,49 +375,95 @@ function verifyOneTimeToken_(otoken) {
 /**
  *  檢查 Session（自動延期）- 修正版
  */
+// 每個 API 都會呼叫 checkSession_。原本每次都整張讀 Session 表、再寫一次延長到期時間，
+// 寫入是最慢的試算表操作。現在：
+// - token → userId／到期時間 放快取，命中時完全不讀表
+// - 到期時間每 SESSION_EXTEND_EVERY_MS 才延長一次（寫入），不是每次都寫
+const SESSION_CACHE_SECONDS = 600;
+const SESSION_EXTEND_EVERY_MS = 6 * 60 * 60 * 1000;
+
+function sessionCacheKey_(token) {
+  return 'sess_' + token;
+}
+
+/** token 被換掉（重新登入）時，舊 token 的快取也要清掉，否則會多活 SESSION_CACHE_SECONDS */
+function invalidateSessionCache_(token) {
+  if (!token) return;
+  try {
+    CacheService.getScriptCache().remove(sessionCacheKey_(String(token)));
+  } catch (e) {
+    Logger.log('invalidateSessionCache_ 失敗: ' + e);
+  }
+}
+
 function checkSession_(sessionToken) {
   if (!sessionToken) return { ok: false, code: "MISSING_SESSION_TOKEN" };
 
-  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_SESSION);
-  if (!sh) return { ok: false, code: "SESSION_SHEET_NOT_FOUND" };
+  const cache = CacheService.getScriptCache();
+  const cacheKey = sessionCacheKey_(sessionToken);
+  const now = Date.now();
+  let session = null;
 
-  const values = sh.getDataRange().getValues();
-  for (let i = 1; i < values.length; i++) {
-    const [token, userId, , expiredAt] = values[i];
-    if (token === sessionToken) {
-      if (expiredAt && new Date() > new Date(expiredAt)) {
-        return { ok: false, code: "ERR_SESSION_EXPIRED" };
-      }
-      
-      // 延長 Session
-      const newExpiredAt = new Date(new Date().getTime() + SESSION_TTL_MS);
-      sh.getRange(i + 1, 4).setValue(newExpiredAt);
-      
-      // 查詢員工資料
-      const employee = findEmployeeByLineUserId_(userId);
-      if (!employee.ok) {
-        Logger.log(" Session 檢查失敗: " + JSON.stringify(employee));
-        return { ok: false, code: employee.code };
-      }
-      
-      // ⭐⭐⭐ 關鍵修正：不要返回整個 employee 物件，而是只返回純淨的 user 資料
-      return { 
-        ok: true, 
-        user: {
-          userId: employee.userId,
-          employeeId: employee.employeeId,
-          email: employee.email,
-          name: employee.name,
-          picture: employee.picture,
-          dept: employee.dept,
-          status: employee.status
-        },
-        code: "WELCOME_BACK",
-        params: { name: employee.name }
-      };
-    }
+  const cached = cache.get(cacheKey);
+  if (cached) session = JSON.parse(cached);
+
+  if (!session) {
+    const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_SESSION);
+    if (!sh) return { ok: false, code: "SESSION_SHEET_NOT_FOUND" };
+
+    // 只在 A 欄找完全相同的 token，不用整張讀
+    const cell = sh.getRange("A:A").createTextFinder(String(sessionToken)).matchEntireCell(true).matchCase(true).findNext();
+    if (!cell || cell.getRow() < 2) return { ok: false, code: "ERR_SESSION_INVALID" };
+
+    const row = cell.getRow();
+    const [, userId, , expiredAt] = sh.getRange(row, 1, 1, 4).getValues()[0];
+    session = {
+      userId: String(userId),
+      row: row,
+      exp: expiredAt ? new Date(expiredAt).getTime() : 0
+    };
   }
-  return { ok: false, code: "ERR_SESSION_INVALID" };
+
+  if (session.exp && now > session.exp) {
+    cache.remove(cacheKey);
+    return { ok: false, code: "ERR_SESSION_EXPIRED" };
+  }
+
+  // 延長 Session：距離上次延長超過 SESSION_EXTEND_EVERY_MS 才寫回試算表
+  if (!session.exp || session.exp - now < SESSION_TTL_MS - SESSION_EXTEND_EVERY_MS) {
+    const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_SESSION);
+    // 寫之前確認那一列還是這個 token（中間可能有人重新登入把 token 換掉）
+    if (String(sh.getRange(session.row, 1).getValue()) !== String(sessionToken)) {
+      cache.remove(cacheKey);
+      return { ok: false, code: "ERR_SESSION_INVALID" };
+    }
+    session.exp = now + SESSION_TTL_MS;
+    sh.getRange(session.row, 4).setValue(new Date(session.exp));
+  }
+  cache.put(cacheKey, JSON.stringify(session), SESSION_CACHE_SECONDS);
+
+  // 查詢員工資料
+  const employee = findEmployeeByLineUserId_(session.userId);
+  if (!employee.ok) {
+    Logger.log(" Session 檢查失敗: " + JSON.stringify(employee));
+    return { ok: false, code: employee.code };
+  }
+
+  // 只回傳純淨的 user 資料
+  return {
+    ok: true,
+    user: {
+      userId: employee.userId,
+      employeeId: employee.employeeId,
+      email: employee.email,
+      name: employee.name,
+      picture: employee.picture,
+      dept: employee.dept,
+      status: employee.status
+    },
+    code: "WELCOME_BACK",
+    params: { name: employee.name }
+  };
 }
 
 /**
@@ -465,10 +540,10 @@ function punch(sessionToken, type, lat, lng, note, accuracy) {
     return { ok: false, code: "ERR_OUT_OF_RANGE" };
   }
 
-  // 防重複：同一天同類型（上班/下班）只能打一次
+  // 防重複：同一天同類型（上班/下班）只能打一次（只需要讀最近兩天的紀錄）
   const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_ATTENDANCE);
   const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
-  const attendanceValues = sh.getDataRange().getValues();
+  const attendanceValues = readAttendanceRowsSince_(new Date(Date.now() - 2 * 24 * 60 * 60 * 1000));
 
   for (let i = 1; i < attendanceValues.length; i++) {
     const row = attendanceValues[i];
@@ -606,9 +681,51 @@ function punchAdjusted(sessionToken, type, punchDate, lat, lng, note) {
 /**
  * 取得出勤紀錄
  */
-function getAttendanceRecords(monthParam, userIdParam) {
+// 打卡紀錄只會越來越長，原本每次登入、打卡都整張讀，資料越多越慢。
+// 新資料都附加在表尾，所以從表尾往回一段一段讀，讀到「整段都早於起始時間」就停。
+// （核准的補打卡會在事後附加到表尾，日期較舊但位置在後面，一樣讀得到。）
+const ATTENDANCE_READ_BLOCK = 1000;
+
+/**
+ * 讀取打卡紀錄中時間 >= since 的列
+ * @param {Date} since
+ * @return {Array[]} 第 0 列是標題，之後依試算表順序；格式和 getValues() 相同，舊程式可以直接沿用
+ */
+function readAttendanceRowsSince_(since) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_ATTENDANCE);
-  const values = sheet.getDataRange().getValues().slice(1);
+  const lastRow = sheet.getLastRow();
+  const lastCol = Math.max(sheet.getLastColumn(), 10);
+  if (lastRow < 1) return [[]];
+  const header = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const sinceMs = since.getTime();
+
+  const blocks = [];
+  let end = lastRow;
+  while (end >= 2) {
+    const start = Math.max(2, end - ATTENDANCE_READ_BLOCK + 1);
+    const block = sheet.getRange(start, 1, end - start + 1, lastCol).getValues();
+    let dated = 0;
+    let recent = 0;
+    const kept = block.filter(row => {
+      if (!row[0]) return false;
+      const t = new Date(row[0]).getTime();
+      if (isNaN(t)) return false;
+      dated++;
+      if (t >= sinceMs) { recent++; return true; }
+      return false;
+    });
+    blocks.unshift(kept);
+    if (dated > 0 && recent === 0) break;
+    end = start - 1;
+  }
+  return [header].concat(...blocks);
+}
+
+function getAttendanceRecords(monthParam, userIdParam) {
+  // 月初往前多抓一天，避免時區邊界漏資料；月份比對仍以下面的 filter 為準
+  const [y, m] = String(monthParam).split('-').map(Number);
+  const since = (y && m) ? new Date(y, m - 1, 0) : new Date(0);
+  const values = readAttendanceRowsSince_(since).slice(1);
   
   return values.filter(row => {
     if (!row[0]) return false;
@@ -1518,6 +1635,7 @@ function updateUserRole(userId, newRole) {
         sheet.getRange(i + 1, 6).setValue(newDept);  // F 欄: 部門
         
         Logger.log(' 已更新角色為: ' + newDept);
+        invalidateEmployeeCache_(userId);
         
         return {
           ok: true,
@@ -1579,6 +1697,7 @@ function deleteUser(userId) {
     for (let i = 1; i < data.length; i++) {
       if (data[i][0] === userId) {  // A 欄: userId
         sheet.deleteRow(i + 1);
+        invalidateEmployeeCache_(userId);
         
         Logger.log(' 用戶已刪除');
         
@@ -1881,6 +2000,7 @@ function updateEmployeeName(userId, newName) {
         Logger.log('   新姓名: ' + trimmedName);
         Logger.log('   nameOverride: ' + trimmedName + ' ');
         Logger.log('═══════════════════════════════════════');
+        invalidateEmployeeCache_(userId);
         
         return {
           ok: true,
@@ -2244,7 +2364,7 @@ function qrPunch(sessionToken, qrTokenId, locationName) {
   const attendanceSh = SpreadsheetApp.getActive().getSheetByName(SHEET_ATTENDANCE);
   const now   = new Date();
   const today = Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy-MM-dd');
-  const rows  = attendanceSh.getDataRange().getValues();
+  const rows  = readAttendanceRowsSince_(new Date(Date.now() - 2 * 24 * 60 * 60 * 1000));
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];

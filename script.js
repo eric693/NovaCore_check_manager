@@ -137,128 +137,134 @@ const showNotification = (message, type = 'success') => {
     }, 3000);
 };
 
-// 確保登入
-// script.js - 完整替換 ensureLogin 函數
-async function ensureLogin() 
-{
-    return new Promise(async (resolve) => {
-      const token = localStorage.getItem("sessionToken");
-      
-      if (!token) {
-        showLoginUI();
-        resolve(false);
-        return;
-      }
-      
-      //  關鍵新增：檢查本地快取
-      const cachedUser = localStorage.getItem("cachedUser");
-      const cacheTime = localStorage.getItem("cacheTime");
-      const now = Date.now();
-      
-      // 如果快取存在且未過期（5 分鐘內）
-      if (cachedUser && cacheTime && (now - parseInt(cacheTime)) < 5 * 60 * 1000) {
-        console.log(' 使用快取，秒速登入');
-        
-        const user = JSON.parse(cachedUser);
-        
-        // 直接顯示 UI（不等待 API）
-        if (user.dept === "管理員") {
-          setElementDisplay('tab-admin-btn', 'block');
-        }
-        
-        setElementText("user-name", user.name);
-        setElementSrc("profile-img", user.picture);
-        localStorage.setItem("sessionUserId", user.userId);
-        
-        setElementDisplay('login-section', 'none');
-        setElementDisplay('user-header', 'flex');
-        setElementDisplay('main-app', 'block');
-        
-        // 背景驗證（不阻塞 UI）
-        checkSessionInBackground(token);
-        
-        // 背景載入異常記錄
-        loadAbnormalRecordsInBackground();
-        
-        resolve(true);
-        return;
-      }
-      
-      // 快取過期或不存在，正常流程
-      setElementText("status", t("CHECKING_LOGIN"));
-      
-      try {
-        const res = await callApifetch("initApp");
-        
-        if (res.ok) {
-          console.log(' initApp 成功，儲存快取');
-          
-          //  儲存快取
-          localStorage.setItem("cachedUser", JSON.stringify(res.user));
-          localStorage.setItem("cacheTime", Date.now().toString());
-          
-          if (res.user.dept === "管理員") {
-            setElementDisplay('tab-admin-btn', 'block');
-          }
-          
-          setElementText("user-name", res.user.name);
-          setElementSrc("profile-img", res.user.picture || res.user.rate);
-          localStorage.setItem("sessionUserId", res.user.userId);
-          
-          showNotification(t("LOGIN_SUCCESS"));
-          
-          setElementDisplay('login-section', 'none');
-          setElementDisplay('user-header', 'flex');
-          setElementDisplay('main-app', 'block');
-          
-          renderAbnormalRecords(res.abnormalRecords);
-          if (typeof loadFlexCheckoutPending === 'function') loadFlexCheckoutPending();
+// ===== 登入 =====
+// 有快取的使用者資料就先直接顯示畫面，再到背景呼叫 initApp 更新（stale-while-revalidate）。
+// 原本快取只有 5 分鐘，過期就得等後端回應才看得到畫面；而快取有效時又會另外打
+// checkSession、getAbnormalRecords、getMyFlexCheckout 三支 API。現在一律只打一次 initApp。
+const USER_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
-          resolve(true);
-        } else {
-          console.error(' initApp 失敗');
-          
-          // 清除快取
-          localStorage.removeItem("cachedUser");
-          localStorage.removeItem("cacheTime");
-          
-          showLoginUI();
-          showNotification(` ${t(res.code || "UNKNOWN_ERROR")}`, "error");
-          resolve(false);
-        }
-      } catch (err) {
-        console.error(' ensureLogin 錯誤:', err);
-        
-        localStorage.removeItem("cachedUser");
-        localStorage.removeItem("cacheTime");
-        
-        showLoginUI();
-        resolve(false);
-      }
-    });
+// 這些錯誤代表 session 真的不能用了，要回到登入畫面；其他（網路、後端暫時錯誤）就沿用快取
+const SESSION_DEAD_CODES = ['ERR_SESSION_INVALID', 'ERR_SESSION_EXPIRED', 'MISSING_SESSION_TOKEN', 'ERR_NO_DATA'];
 
+let _initAppPromise = null;
 
 /**
- * 背景驗證 Session（不阻塞 UI）
+ * 盡早開始呼叫 initApp（在載入語系檔之前），兩邊同時進行
  */
-async function checkSessionInBackground(token) {
-    try {
-      const res = await callApifetch("checkSession&token=" + token);
-      
-      if (!res.ok) {
-        console.log(' Session 已失效');
-        localStorage.removeItem("cachedUser");
-        localStorage.removeItem("cacheTime");
-        showNotification(t('NOTIF_SESSION_EXPIRED'), 'warning');
-        
-        setTimeout(() => {
-          showLoginUI();
-        }, 2000);
-      }
-    } catch (error) {
-      console.error('背景驗證失敗:', error);
+function prefetchInitApp() {
+    if (!_initAppPromise && localStorage.getItem('sessionToken')) {
+        _initAppPromise = callApifetch('initApp');
     }
-}}
+    return _initAppPromise;
+}
+
+function takeInitApp() {
+    const p = _initAppPromise || callApifetch('initApp');
+    _initAppPromise = null;
+    return p;
+}
+
+function readCachedUser() {
+    try {
+        const user = JSON.parse(localStorage.getItem('cachedUser') || 'null');
+        const savedAt = parseInt(localStorage.getItem('cacheTime') || '0', 10);
+        if (user && user.userId && Date.now() - savedAt < USER_CACHE_MAX_AGE_MS) return user;
+    } catch {}
+    return null;
+}
+
+function clearCachedUser() {
+    localStorage.removeItem('cachedUser');
+    localStorage.removeItem('cacheTime');
+}
+
+/**
+ * 把登入者資料套到畫面上
+ */
+function applyLoggedInUser(user) {
+    localStorage.setItem('cachedUser', JSON.stringify(user));
+    localStorage.setItem('cacheTime', Date.now().toString());
+    localStorage.setItem('sessionUserId', user.userId);
+
+    // 角色可能在背景更新時才知道被改過，所以要能藏也能顯示
+    setElementDisplay('tab-admin-btn', user.dept === '管理員' ? 'block' : 'none');
+    setElementText('user-name', user.name);
+    setElementSrc('profile-img', user.picture || user.rate);
+
+    setElementDisplay('login-section', 'none');
+    setElementDisplay('user-header', 'flex');
+    setElementDisplay('main-app', 'block');
+}
+
+/**
+ * initApp 成功後：更新使用者、異常紀錄、彈性下班卡片
+ */
+function applyInitAppResult(res) {
+    applyLoggedInUser(res.user);
+    renderAbnormalRecords(res.abnormalRecords || []);
+    if (res.flexCheckout && typeof renderFlexCheckoutPending === 'function') {
+        renderFlexCheckoutPending(res.flexCheckout);
+    } else if (typeof loadFlexCheckoutPending === 'function') {
+        loadFlexCheckoutPending(); // 舊版後端沒有帶 flexCheckout
+    }
+}
+
+async function ensureLogin() {
+    const token = localStorage.getItem("sessionToken");
+    if (!token) {
+        showLoginUI();
+        return false;
+    }
+
+    const cachedUser = readCachedUser();
+    if (cachedUser) {
+        // 先用快取顯示畫面，不等後端
+        applyLoggedInUser(cachedUser);
+        refreshLoginInBackground();
+        return true;
+    }
+
+    // 沒有快取（第一次、或清過瀏覽器資料）才需要等後端
+    setElementText("status", t("CHECKING_LOGIN"));
+    try {
+        const res = await takeInitApp();
+        if (res.ok) {
+            applyInitAppResult(res);
+            showNotification(t("LOGIN_SUCCESS"));
+            return true;
+        }
+        clearCachedUser();
+        showLoginUI();
+        showNotification(` ${t(res.code || "UNKNOWN_ERROR")}`, "error");
+        return false;
+    } catch (err) {
+        console.error(' ensureLogin 錯誤:', err);
+        clearCachedUser();
+        showLoginUI();
+        return false;
+    }
+}
+
+/**
+ * 背景更新登入狀態（不阻塞畫面）
+ */
+async function refreshLoginInBackground() {
+    try {
+        const res = await takeInitApp();
+        if (res.ok) {
+            applyInitAppResult(res);
+            return;
+        }
+        if (SESSION_DEAD_CODES.includes(res.code)) {
+            clearCachedUser();
+            showNotification(t('NOTIF_SESSION_EXPIRED'), 'warning');
+            setTimeout(showLoginUI, 2000);
+        }
+    } catch (error) {
+        // 網路暫時不通就先沿用快取，下次開啟再驗證
+        console.error('背景驗證失敗:', error);
+    }
+}
 
 /**
  * 背景載入異常記錄（不阻塞 UI）
@@ -282,6 +288,8 @@ async function loadAbnormalRecordsInBackground() {
 }
   
 function showLoginUI() {
+    // 先用快取顯示過主畫面時登入區塊是藏起來的，session 失效回到這裡要重新顯示，否則畫面一片空白
+    setElementDisplay('login-section', '');
     setElementDisplay('login-btn', 'block');
     document.getElementById('user-header').style.display = 'none';
     document.getElementById('main-app').style.display = 'none';
@@ -1863,7 +1871,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             fetchAndRenderReviewRequests();
             loadPendingOvertimeRequests();
             loadPendingFlexCheckout();
-            initSheetAdmin();
             loadPendingWorklogs();  // 
             loadPendingLeaveRequests();
             displayAdminAnnouncements();
@@ -1924,6 +1931,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             resultsContainer.classList.add('hidden');
         }
     });
+    // LINE 登入回來（網址帶 code）會走另一條流程，其他情況先把 initApp 發出去，跟語系檔同時下載
+    if (!new URLSearchParams(window.location.search).get('code')) prefetchInitApp();
+
     // 語系初始化
     // 語系：沒有紀錄時由 i18n.js 依瀏覽器語言決定
     const pageLang = detectLang();
@@ -1987,8 +1997,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 showNotification(t("LOGIN_SUCCESS"), "success");
 
-                //  關鍵：UI 顯示後才載入異常記錄（不阻塞登入）
-                loadAbnormalRecordsInBackground();
+                //  UI 顯示後才在背景載入異常記錄與彈性下班（一次 initApp，不阻塞登入）
+                refreshLoginInBackground();
 
                 // 初始化生物辨識（背景執行）
                 initBiometricPunch();
@@ -2021,6 +2031,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     if (logoutBtn) logoutBtn.onclick = () => {
         localStorage.removeItem("sessionToken");
+        clearCachedUser(); // 同一台裝置換人登入時，不要先閃出上一個人的資料
         window.location.href = "/NovaCore_check_manager"
     };
     

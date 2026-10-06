@@ -2329,31 +2329,18 @@ function handleInitApp(params) {
     const records = getAttendanceRecords(month, userId);
     const abnormalResults = checkAttendanceAbnormal(records);
     
-    //  3. 取得加班記錄（新增）
-    const overtimeRecords = getApprovedOvertimeRecords(userId, month);
+    // （原本這裡會再讀加班表合併進來，但參數順序寫反從來沒查到東西，前端也沒有對應的顯示，
+    //   只是每次登入白讀一整張表，所以拿掉）
     
-    //  4. 將加班記錄加入異常記錄陣列
-    overtimeRecords.forEach(ot => {
-      abnormalResults.push({
-        date: ot.date,
-        reason: 'STATUS_OVERTIME_APPROVED',
-        punchTypes: null,
-        overtime: {
-          startTime: ot.startTime,
-          endTime: ot.endTime,
-          hours: ot.hours,
-          reason: ot.reason
-        }
-      });
-    });
-    
-    // 5. 返回合併結果
+    // 3. 返回結果
     return {
       ok: true,
       user: session.user,
       code: session.code,
       params: session.params,
-      abnormalRecords: abnormalResults  // 現在包含打卡異常 + 加班記錄
+      abnormalRecords: abnormalResults,
+      // 彈性下班待填寫：一起帶回去，前端登入後不用再多打一支 API
+      flexCheckout: getMyFlexCheckoutData_(userId)
     };
     
   } catch (error) {

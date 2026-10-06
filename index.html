@@ -1604,69 +1604,21 @@
                             </button>
                         </div>
                     </div>
-                    <!-- 資料表管理：直接檢視與維護試算表各工作表 -->
-                    <div id="sheet-admin-card" class="card p-6 mt-6">
-                        <h2 data-i18n="SHEET_ADMIN_TITLE"
+                    <!-- 資料管理：獨立頁面（data-admin.html），表格需要整個畫面寬度 -->
+                    <div class="card p-6 mt-6">
+                        <h2 data-i18n="DATA_ADMIN_TITLE"
                             class="text-xl font-bold text-gray-800 dark:text-white mb-1">
-                            資料表管理
+                            資料管理
                         </h2>
-                        <p data-i18n="SHEET_ADMIN_DESC"
+                        <p data-i18n="DATA_ADMIN_OPEN_DESC"
                            class="text-gray-500 dark:text-gray-400 mb-4 text-sm">
-                            直接檢視、新增、編輯、刪除試算表資料。所有異動都會記錄在「資料編輯紀錄」。
+                            查看、新增、編輯、刪除打卡、請假、加班等試算表資料。
                         </p>
-
-                        <div class="flex flex-wrap gap-2 mb-3">
-                            <select id="sheet-admin-select"
-                                    class="flex-1 min-w-0 p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
-                                <option value="" data-i18n="SHEET_ADMIN_PICK">請選擇工作表</option>
-                            </select>
-                            <button id="sheet-admin-refresh" data-i18n="SHEET_ADMIN_REFRESH"
-                                    class="px-3 py-2 rounded-md font-bold btn-secondary text-sm">重新整理</button>
-                            <button id="sheet-admin-add" data-i18n="SHEET_ADMIN_ADD"
-                                    class="px-3 py-2 rounded-md font-bold btn-primary text-sm" disabled>新增資料</button>
-                        </div>
-
-                        <div id="sheet-admin-tools" class="space-y-2 mb-3" style="display: none;">
-                            <input type="search" id="sheet-admin-search"
-                                   data-i18n="SHEET_ADMIN_SEARCH_PLACEHOLDER"
-                                   placeholder="搜尋所有欄位..."
-                                   class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
-                            <div class="flex flex-wrap gap-2">
-                                <select id="sheet-admin-filter-col"
-                                        class="flex-1 min-w-[8rem] p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white text-sm"></select>
-                                <select id="sheet-admin-filter-op"
-                                        class="p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white text-sm">
-                                    <option value="contains" data-i18n="SHEET_ADMIN_OP_CONTAINS">包含</option>
-                                    <option value="eq" data-i18n="SHEET_ADMIN_OP_EQ">等於</option>
-                                    <option value="neq" data-i18n="SHEET_ADMIN_OP_NEQ">不等於</option>
-                                    <option value="gte">≥</option>
-                                    <option value="lte">≤</option>
-                                    <option value="empty" data-i18n="SHEET_ADMIN_OP_EMPTY">是空白</option>
-                                    <option value="notempty" data-i18n="SHEET_ADMIN_OP_NOTEMPTY">不是空白</option>
-                                </select>
-                                <input type="text" id="sheet-admin-filter-val"
-                                       data-i18n="SHEET_ADMIN_FILTER_VALUE"
-                                       placeholder="篩選值"
-                                       class="flex-1 min-w-[6rem] p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white text-sm">
-                                <button id="sheet-admin-filter-add" data-i18n="SHEET_ADMIN_FILTER_ADD"
-                                        class="px-3 py-2 rounded-md font-bold btn-secondary text-sm">加入篩選</button>
-                            </div>
-                            <div id="sheet-admin-chips" class="flex flex-wrap gap-2"></div>
-                            <p id="sheet-admin-count" class="text-sm text-gray-500 dark:text-gray-400"></p>
-                        </div>
-
-                        <div id="sheet-admin-status" class="text-center text-gray-500 dark:text-gray-400 py-4 text-sm" style="display: none;"></div>
-                        <div id="sheet-admin-table-wrap" class="overflow-x-auto max-h-[32rem] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-md" style="display: none;">
-                            <table class="min-w-full text-sm">
-                                <thead id="sheet-admin-thead" class="bg-gray-100 dark:bg-gray-700 sticky top-0 z-10"></thead>
-                                <tbody id="sheet-admin-tbody" class="divide-y divide-gray-200 dark:divide-gray-700"></tbody>
-                            </table>
-                        </div>
-                        <div id="sheet-admin-pager" class="flex items-center justify-between mt-3 text-sm" style="display: none;">
-                            <button id="sheet-admin-prev" data-i18n="SHEET_ADMIN_PREV" class="px-3 py-1 rounded-md btn-secondary">上一頁</button>
-                            <span id="sheet-admin-page" class="text-gray-600 dark:text-gray-300"></span>
-                            <button id="sheet-admin-next" data-i18n="SHEET_ADMIN_NEXT" class="px-3 py-1 rounded-md btn-secondary">下一頁</button>
-                        </div>
+                        <button onclick="window.location.href='data-admin.html'"
+                                data-i18n="DATA_ADMIN_OPEN"
+                                class="w-full py-3 px-4 rounded-lg font-bold btn-primary">
+                            開啟資料管理
+                        </button>
                     </div>
                     <!-- QR Code 打卡管理 -->
                     <div class="card p-6 mt-6">
@@ -1804,7 +1756,6 @@
         <script src="script.js"></script>
         <script src="location-picker.js"></script>
         <script src="flex-checkout.js"></script>
-        <script src="sheet-admin.js"></script>
         <script src="analytics.js"></script>
         <script src="biometric.js"></script>
         <script src="reports.js"></script>

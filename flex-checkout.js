@@ -45,48 +45,56 @@ function loadFlexCheckoutPending() {
 }
 
 async function _doLoadFlexCheckoutPending() {
-    const section = document.getElementById('flex-checkout-section');
-    const list = document.getElementById('flex-checkout-list');
-    const desc = document.getElementById('flex-checkout-desc');
-
     try {
-        const res = await callApifetch('getMyFlexCheckout', 'flex-none');
-        if (!res.ok || !res.pending || res.pending.length === 0) {
-            section.style.display = 'none';
-            return;
-        }
-
-        // 同一天被退回過的話，把管理員意見一起顯示，員工才知道要怎麼改
-        const rejected = {};
-        (res.records || []).forEach(r => {
-            if (r.status === '已拒絕' && !rejected[r.date]) rejected[r.date] = r;
-        });
-
-        desc.textContent = t('FLEX_SECTION_DESC', { min: res.minHours });
-        list.innerHTML = '';
-        res.pending.forEach(day => {
-            const li = document.createElement('li');
-            li.className = 'p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg flex items-center justify-between gap-3';
-            const prev = rejected[day.date];
-            li.innerHTML = `
-                <div class="min-w-0">
-                    <p class="font-semibold text-gray-800 dark:text-white">${escapeHtml(day.date)}</p>
-                    <p class="text-sm text-gray-600 dark:text-gray-300">
-                        ${escapeHtml(day.punchIn)} – ${escapeHtml(day.punchOut)}
-                        ・${escapeHtml(t('FLEX_HOURS_VALUE', { hours: day.workedHours }))}
-                    </p>
-                    ${day.workLocation ? `<p class="text-sm text-gray-500 dark:text-gray-400 truncate">📍 ${escapeHtml(day.workLocation)}</p>` : ''}
-                    ${prev ? `<p class="text-xs text-red-600 dark:text-red-400 mt-1">${escapeHtml(t('FLEX_PREV_REJECTED', { comment: prev.comment || '-' }))}</p>` : ''}
-                </div>
-                <button class="flex-fill-btn shrink-0 px-4 py-2 rounded-md text-sm font-bold btn-primary">${escapeHtml(t('FLEX_FILL_BTN'))}</button>
-            `;
-            li.querySelector('.flex-fill-btn').addEventListener('click', () => openFlexCheckoutDialog(day, res.minHours));
-            list.appendChild(li);
-        });
-        section.style.display = 'block';
+        renderFlexCheckoutPending(await callApifetch('getMyFlexCheckout', 'flex-none'));
     } catch (err) {
         console.error('載入彈性下班原因失敗:', err);
     }
+}
+
+/**
+ * 畫出首頁的待填寫卡片；initApp 登入時會直接帶這份資料過來
+ * @param {Object} res getMyFlexCheckout 的回應 { ok, pending, records, minHours }
+ */
+function renderFlexCheckoutPending(res) {
+    const section = document.getElementById('flex-checkout-section');
+    const list = document.getElementById('flex-checkout-list');
+    const desc = document.getElementById('flex-checkout-desc');
+    if (!section) return;
+
+    if (!res || !res.ok || !res.pending || res.pending.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+
+    // 同一天被退回過的話，把管理員意見一起顯示，員工才知道要怎麼改
+    const rejected = {};
+    (res.records || []).forEach(r => {
+        if (r.status === '已拒絕' && !rejected[r.date]) rejected[r.date] = r;
+    });
+
+    desc.textContent = t('FLEX_SECTION_DESC', { min: res.minHours });
+    list.innerHTML = '';
+    res.pending.forEach(day => {
+        const li = document.createElement('li');
+        li.className = 'p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg flex items-center justify-between gap-3';
+        const prev = rejected[day.date];
+        li.innerHTML = `
+            <div class="min-w-0">
+                <p class="font-semibold text-gray-800 dark:text-white">${escapeHtml(day.date)}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-300">
+                    ${escapeHtml(day.punchIn)} – ${escapeHtml(day.punchOut)}
+                    ・${escapeHtml(t('FLEX_HOURS_VALUE', { hours: day.workedHours }))}
+                </p>
+                ${day.workLocation ? `<p class="text-sm text-gray-500 dark:text-gray-400 truncate">📍 ${escapeHtml(day.workLocation)}</p>` : ''}
+                ${prev ? `<p class="text-xs text-red-600 dark:text-red-400 mt-1">${escapeHtml(t('FLEX_PREV_REJECTED', { comment: prev.comment || '-' }))}</p>` : ''}
+            </div>
+            <button class="flex-fill-btn shrink-0 px-4 py-2 rounded-md text-sm font-bold btn-primary">${escapeHtml(t('FLEX_FILL_BTN'))}</button>
+        `;
+        li.querySelector('.flex-fill-btn').addEventListener('click', () => openFlexCheckoutDialog(day, res.minHours));
+        list.appendChild(li);
+    });
+    section.style.display = 'block';
 }
 
 /**

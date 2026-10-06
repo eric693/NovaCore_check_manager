@@ -185,6 +185,12 @@ function handleSheetAdminSave(params) {
       }
       sheet.appendRow(rowValues);
       const newRow = sheet.getLastRow();
+      // appendRow 會把「看起來像數字／日期」的文字自動轉型，文字欄要再以純文字寫回一次
+      for (let c = 0; c < lastCol; c++) {
+        if (sheetAdminNeedsTextFormat_(rowValues[c], types[c])) {
+          sheetAdminWriteCell_(sheet.getRange(newRow, c + 1), rowValues[c], types[c]);
+        }
+      }
       sheetAdminAudit_(auth.user, sheet.getName(), newRow, '新增', null, values.slice(0, lastCol));
       return { ok: true, code: 'SHEET_ADMIN_SAVED', row: newRow };
     }
@@ -209,7 +215,8 @@ function handleSheetAdminSave(params) {
       converted[c] = v;
       changed.push(c);
     }
-    changed.forEach(c => sheet.getRange(rowNumber, c + 1).setValue(converted[c]));
+    changed.forEach(c => sheetAdminWriteCell_(sheet.getRange(rowNumber, c + 1), converted[c], types[c]));
+    sheetAdminInvalidateCaches_(sheet, [current[0], values[0]]);
     if (changed.length) {
       sheetAdminAudit_(auth.user, sheet.getName(), rowNumber, '編輯',
         changed.map(c => ({ col: c + 1, value: current[c] })),
@@ -250,11 +257,31 @@ function handleSheetAdminDelete(params) {
     if (!original || !sheetAdminSameRow_(current, original)) return { ok: false, code: 'ERR_ROW_CHANGED' };
 
     sheet.deleteRow(rowNumber);
+    sheetAdminInvalidateCaches_(sheet, [current[0]]);
     sheetAdminAudit_(auth.user, sheet.getName(), rowNumber, '刪除', current, null);
     return { ok: true, code: 'SHEET_ADMIN_DELETED' };
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * 文字欄位裡「看起來像數字、日期、時間、布林」的字串，試算表收到時會自動轉型：
+ * 0912345678 會變成 912345678、銀行帳號開頭的 0 會不見、2026-10-01 會變成日期。
+ * 這種值要先把格子設成純文字格式再寫入。
+ */
+function sheetAdminNeedsTextFormat_(value, type) {
+  if (typeof value !== 'string' || value === '' || type === 'number' || type === 'date' || type === 'boolean') return false;
+  const v = value.trim();
+  return /^[-+]?[\d,]*\.?\d+%?$/.test(v) ||               // 數字、百分比、開頭是 0 的號碼
+         /^\d{1,4}[-\/.]\d{1,2}([-\/.]\d{1,4})?([ T].*)?$/.test(v) || // 日期
+         /^\d{1,2}:\d{2}(:\d{2})?$/.test(v) ||                   // 時間
+         /^(true|false)$/i.test(v);
+}
+
+function sheetAdminWriteCell_(range, value, type) {
+  if (sheetAdminNeedsTextFormat_(value, type)) range.setNumberFormat('@');
+  range.setValue(value);
 }
 
 // 日期欄寫進文字的話，後端讀到的就不是 Date，打卡、薪資計算會整列算錯
@@ -282,6 +309,12 @@ function sheetAdminRowText_(raw, display) {
     }
     return display[i];
   });
+}
+
+// 員工名單有快取（checkSession_ 用），直接改表的話要清掉，權限／姓名才會馬上生效
+function sheetAdminInvalidateCaches_(sheet, userIds) {
+  if (sheet.getName() !== SHEET_EMPLOYEES) return;
+  userIds.forEach(id => { if (id) invalidateEmployeeCache_(id); });
 }
 
 function sheetAdminSameRow_(current, original) {

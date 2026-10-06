@@ -234,8 +234,7 @@ function findFlexPendingDays_(userId) {
   since.setDate(since.getDate() - FLEX_LOOKBACK_DAYS);
   const sinceKey = flexDateKey_(since);
 
-  const attendance = SpreadsheetApp.getActive().getSheetByName(SHEET_ATTENDANCE);
-  const days = collectWorkDays_(attendance.getDataRange().getValues(), userId, sinceKey);
+  const days = collectWorkDays_(readAttendanceRowsSince_(since), userId, sinceKey);
 
   const shortKeys = Object.keys(days).filter(k => {
     const h = workedHours_(days[k]);
@@ -266,8 +265,13 @@ function findFlexPendingDays_(userId) {
 function handleGetMyFlexCheckout(params) {
   const session = checkSession_(params.token);
   if (!session.ok || !session.user) return { ok: false, code: 'ERR_SESSION_INVALID' };
-  const userId = session.user.userId;
+  return getMyFlexCheckoutData_(session.user.userId);
+}
 
+/**
+ * 員工的彈性下班資料；initApp 登入時會一起帶回去，前端不用再多打一支 API
+ */
+function getMyFlexCheckoutData_(userId) {
   try {
     const sheet = getFlexCheckoutSheet_();
     const values = sheet.getDataRange().getValues();

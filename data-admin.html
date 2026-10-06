@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="DATA_ADMIN_PAGE_TITLE">資料管理 - 出勤系統</title>
+    <style>
+        :root {
+            --bg: #f6f7f9;
+            --card: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --border: #e5e7eb;
+            --primary: #4a7ee8;
+            --primary-hover: #3b6bd1;
+            --head: #2c4a72;
+            --danger: #e0533f;
+            --danger-hover: #c94532;
+            --soft: #eceef1;
+            --soft-hover: #e0e3e8;
+            --in-bg: #e6f6ec;  --in-fg: #23874a;
+            --out-bg: #fdf0e3; --out-fg: #b3541e;
+            --adj-bg: #fff4d6; --adj-fg: #8a6100;
+            --chip-bg: #e8eefc; --chip-fg: #2f55b8;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            font-size: 15px;
+        }
+        .page { max-width: 1400px; margin: 0 auto; padding: 24px 28px 60px; }
+
+        .page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+        .page-header h1 { margin: 0 0 8px; font-size: 30px; }
+        .page-header p { margin: 0; color: var(--muted); }
+
+        .tabs { display: flex; gap: 4px; margin: 28px 0 22px; border-bottom: 2px solid var(--border); overflow-x: auto; }
+        .tab {
+            background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px;
+            padding: 12px 22px; font-size: 17px; color: #4b5563; cursor: pointer; white-space: nowrap;
+        }
+        .tab:hover { color: var(--primary); }
+        .tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        .card { background: var(--card); border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.06); padding: 22px 22px; margin-bottom: 20px; }
+        .card h2 { margin: 0 0 14px; font-size: 20px; }
+
+        .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+        .field label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
+        .field input, .field select, .field textarea, .toolbar input, .toolbar select {
+            width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px;
+            font-size: 15px; background: #fff; color: var(--text); font-family: inherit;
+        }
+        .field textarea { resize: vertical; }
+        .field .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
+        input:focus, select:focus, textarea:focus { outline: 2px solid rgba(74,126,232,.35); border-color: var(--primary); }
+
+        .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+        .btn { white-space: nowrap; border: none; border-radius: 8px; padding: 10px 18px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit; }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+        .btn-soft { background: var(--soft); color: #374151; }
+        .btn-soft:hover:not(:disabled) { background: var(--soft-hover); }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-danger:hover:not(:disabled) { background: var(--danger-hover); }
+        .btn-sm { padding: 6px 12px; font-size: 13px; }
+
+        .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+        .toolbar input, .toolbar select { width: auto; }
+        .toolbar .grow { flex: 1 1 220px; }
+        .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+        .chip { background: var(--chip-bg); color: var(--chip-fg); border-radius: 999px; padding: 4px 6px 4px 12px; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
+        .chip button { background: none; border: none; color: inherit; font-size: 16px; cursor: pointer; line-height: 1; padding: 0 4px; }
+
+        .count { color: var(--muted); margin: 4px 0 12px; }
+        .table-wrap { overflow-x: auto; border-radius: 6px; }
+        table { width: 100%; border-collapse: collapse; }
+        thead th {
+            background: var(--head); color: #fff; text-align: left; font-weight: 600;
+            padding: 13px 14px; white-space: nowrap; border-bottom: 3px solid #9db4e6; position: sticky; top: 0;
+        }
+        thead th.sortable { cursor: pointer; user-select: none; }
+        thead th.num { text-align: right; }
+        thead th.sortable:hover { background: #355987; }
+        tbody td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        tbody tr:hover { background: #fafbfc; }
+        td.num { text-align: right; font-variant-numeric: tabular-nums; }
+        td.clip { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        td.row-actions { white-space: nowrap; text-align: right; }
+        td.row-actions .btn + .btn { margin-left: 8px; }
+        td.date-cell, td.nowrap { white-space: nowrap; }
+        td.date-cell { font-weight: 500; }
+        tr.group-start td { border-top: 2px solid #d7dde6; }
+        .empty { text-align: center; color: var(--muted); padding: 36px 0; }
+
+        .badge { display: inline-block; border-radius: 999px; padding: 3px 12px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+        .badge-in { background: var(--in-bg); color: var(--in-fg); }
+        .badge-out { background: var(--out-bg); color: var(--out-fg); }
+        .badge-normal { background: var(--soft); color: #4b5563; }
+        .badge-adj { background: var(--adj-bg); color: var(--adj-fg); }
+
+        .pager { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; color: #4b5563; }
+
+        .notice { background: #fff; border-radius: 14px; padding: 40px; text-align: center; color: var(--muted); }
+
+        .modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,.55); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+        .modal { background: #fff; border-radius: 14px; width: 100%; max-width: 640px; max-height: 90vh; display: flex; flex-direction: column; }
+        .modal header { padding: 18px 22px; border-bottom: 1px solid var(--border); font-size: 18px; font-weight: 700; }
+        .modal .body { padding: 18px 22px; overflow-y: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+        .modal .body .full { grid-column: 1 / -1; }
+        .modal footer { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+
+        .toast {
+            position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(20px);
+            background: #1f2937; color: #fff; padding: 12px 20px; border-radius: 10px; opacity: 0;
+            transition: all .25s; z-index: 60; max-width: calc(100% - 32px);
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .toast.success { background: #1f8a4c; }
+        .toast.error { background: #c0392b; }
+        .toast.warning { background: #b7791f; }
+
+        @media (max-width: 760px) {
+            .page { padding: 16px 16px 48px; }
+            .page-header h1 { font-size: 24px; }
+            .form-grid, .modal .body { grid-template-columns: 1fr; }
+            .tab { padding: 10px 14px; font-size: 15px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="page-header">
+            <div>
+                <h1 data-i18n="DATA_ADMIN_TITLE">資料管理</h1>
+                <p data-i18n="DATA_ADMIN_DESC">直接在這裡查看和修改資料，不用打開 Google 試算表。所有修改都會留下管理操作記錄。</p>
+            </div>
+            <button class="btn btn-soft" onclick="window.location.href='index.html'" data-i18n="DATA_ADMIN_BACK">返回</button>
+        </div>
+
+        <div id="da-blocked" class="notice" style="display: none; margin-top: 28px;"></div>
+
+        <div id="da-app" style="display: none;">
+            <nav class="tabs" role="tablist">
+                <button class="tab active" data-tab="attendance" data-i18n="DATA_ADMIN_TAB_ATTENDANCE">打卡紀錄</button>
+                <button class="tab" data-tab="leaveBalance" data-i18n="DATA_ADMIN_TAB_LEAVE_BALANCE">假期餘額</button>
+                <button class="tab" data-tab="leave" data-i18n="DATA_ADMIN_TAB_LEAVE">請假紀錄</button>
+                <button class="tab" data-tab="overtime" data-i18n="DATA_ADMIN_TAB_OVERTIME">加班紀錄</button>
+                <button class="tab" data-tab="all" data-i18n="DATA_ADMIN_TAB_ALL">所有資料表</button>
+            </nav>
+
+            <!-- 打卡紀錄 -->
+            <section class="tab-panel active" data-panel="attendance">
+                <div class="card">
+                    <h2 data-i18n="DATA_ADMIN_QUERY_TITLE">查詢打卡紀錄</h2>
+                    <div class="form-grid">
+                        <div class="field">
+                            <label for="att-start" data-i18n="DATA_ADMIN_START">開始日期</label>
+                            <input type="date" id="att-start">
+                        </div>
+                        <div class="field">
+                            <label for="att-end" data-i18n="DATA_ADMIN_END">結束日期</label>
+                            <input type="date" id="att-end">
+                        </div>
+                        <div class="field">
+                            <label for="att-employee" data-i18n="DATA_ADMIN_EMPLOYEE">員工</label>
+                            <select id="att-employee"></select>
+                        </div>
+                    </div>
+                    <div class="actions">
+                        <button class="btn btn-primary" id="att-query" data-i18n="DATA_ADMIN_QUERY">查詢</button>
+                        <button class="btn btn-soft" id="att-add" data-i18n="DATA_ADMIN_ADD_PUNCH">新增打卡</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="count" id="att-count"></div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th data-i18n="DATA_ADMIN_COL_DATE">日期</th>
+                                    <th data-i18n="DATA_ADMIN_COL_TIME">時間</th>
+                                    <th data-i18n="DATA_ADMIN_COL_EMPLOYEE">員工</th>
+                                    <th data-i18n="DATA_ADMIN_COL_TYPE">上班 / 下班</th>
+                                    <th data-i18n="DATA_ADMIN_COL_LOCATION">地點</th>
+                                    <th data-i18n="DATA_ADMIN_COL_STATUS">狀態</th>
+                                    <th data-i18n="DATA_ADMIN_COL_NOTE">備註</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="att-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 通用資料表（假期餘額／請假／加班／所有資料表共用同一套元件） -->
+            <section class="tab-panel" data-panel="leaveBalance"></section>
+            <section class="tab-panel" data-panel="leave"></section>
+            <section class="tab-panel" data-panel="overtime"></section>
+            <section class="tab-panel" data-panel="all"></section>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="config.js"></script>
+    <script src="utils.js"></script>
+    <script src="i18n.js"></script>
+    <script src="data-admin.js"></script>
+</body>
+</html>
