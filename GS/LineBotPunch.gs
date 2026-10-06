@@ -1317,18 +1317,20 @@ function checkPunchLocation(lat, lng) {
         };
       }
       
-      // 檢查是否在範圍內
-      if (distance <= Number(radius)) {
+      // 範圍可能重疊（相鄰的客戶地點），要取最近的那個，
+      // 不能遇到第一個符合就停，否則會記成表上排在前面的地點
+      if (distance <= Number(radius) &&
+          (!validLocation || distance < validLocation.distance)) {
         validLocation = {
           valid: true,
           locationName: name,
-          distance: Math.round(distance)
+          distance: distance
         };
-        break;
       }
     }
     
     if (validLocation) {
+      validLocation.distance = Math.round(validLocation.distance);
       return validLocation;
     } else {
       return {
@@ -1351,7 +1353,7 @@ function checkPunchLocation(lat, lng) {
 /**
  * 執行打卡
  */
-function executePunch(userId, punchType, lat, lng, locationName) {
+function executePunch(userId, punchType, lat, lng, locationName, accuracy) {
   try {
     const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_ATTENDANCE);
     const employee = findEmployeeByLineUserId_(userId);
@@ -1372,7 +1374,7 @@ function executePunch(userId, punchType, lat, lng, locationName) {
       employee.dept,                            // C: 部門
       employee.name,                            // D: 打卡人員
       punchType,                                // E: 打卡類別
-      `(${lat},${lng})`,                        // F: GPS
+      formatGpsCell_(lat, lng, accuracy),       // F: GPS（含誤差）
       locationName,                             // G: 地點
       'LINE Bot',                               // H: 備註
       '',                                       // I: 管理員審核
@@ -1389,6 +1391,7 @@ function executePunch(userId, punchType, lat, lng, locationName) {
     return {
       success: true,
       time: time,
+      punchedAt: now,
       message: '打卡成功'
     };
     

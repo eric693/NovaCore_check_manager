@@ -16,6 +16,15 @@ const SHEET_ATTENDANCE = '打卡紀錄';
 const SHEET_SESSION    = 'Session';
 const SHEET_LOCATIONS  = '打卡地點表';
 const SHEET_ADJUST_PUNCH  = "補打卡申請";
+const SHEET_FLEX_CHECKOUT = '彈性下班申請';
+
+// ==================== 打卡定位 ====================
+// 手機關掉「精確位置」或用電腦打卡時，回報的誤差常有數公里，
+// 這種座標會落進別的客戶地點的範圍，打卡紀錄就記錯地方。超過這個誤差直接請員工重新定位。
+const MAX_PUNCH_GPS_ACCURACY_M = 500;
+
+// 上班時數（第一次上班卡到最後一次下班卡，含午休）未滿這個時數要填彈性下班原因
+const FLEX_CHECKOUT_MIN_HOURS = 9;
 // 加班系統
 const SHEET_OVERTIME_RECORDS = '加班紀錄';
 

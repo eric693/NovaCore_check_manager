@@ -432,10 +432,14 @@ function testCheckSession() {
 /**
  * 打卡功能（加入防重複：同一天同類型只能打一次）
  */
-function punch(sessionToken, type, lat, lng, note) {
+function punch(sessionToken, type, lat, lng, note, accuracy) {
   const employee = checkSession_(sessionToken);
   const user = employee.user;
   if (!user) return { ok: false, code: "ERR_SESSION_INVALID" };
+
+  if (isNaN(lat) || isNaN(lng)) return { ok: false, code: "ERR_MISSING_PARAMS" };
+  const accuracyError = checkPunchAccuracy_(accuracy);
+  if (accuracyError) return accuracyError;
 
   const shLoc = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_LOCATIONS);
   const lastRow = shLoc.getLastRow();
@@ -489,13 +493,14 @@ function punch(sessionToken, type, lat, lng, note) {
   }
 
   // 寫入打卡記錄
+  const now = new Date();
   const row = [
-    new Date(),
+    now,
     user.userId,
     user.dept,
     user.name,
     type,
-    '(' + lat + ',' + lng + ')',
+    formatGpsCell_(lat, lng, accuracy),
     locationName,
     "",
     "",
@@ -503,8 +508,12 @@ function punch(sessionToken, type, lat, lng, note) {
   ];
   sh.getRange(sh.getLastRow() + 1, 1, 1, row.length).setValues([row]);
 
-  Logger.log('打卡成功: ' + user.name + ' - ' + type);
-  return { ok: true, code: "PUNCH_SUCCESS", params: { type: type } };
+  Logger.log('打卡成功: ' + user.name + ' - ' + type + ' @ ' + locationName + '（' + Math.round(minDistance) + 'm）');
+  const result = { ok: true, code: "PUNCH_SUCCESS", params: { type: type, location: locationName } };
+  if (type === '下班') {
+    result.checkout = buildCheckoutSummary_(user.userId, now, locationName, attendanceValues);
+  }
+  return result;
 }
 
 
@@ -750,12 +759,30 @@ function getAttendanceDetails(monthParam, userIdParam) {
       }
     });
     
+    // 彈性下班申請（只有指定員工時才對得上；全員查詢的 dailyRecords 是以日期合併的）
+    let flexMap = {};
+    if (userIdParam) {
+      try {
+        flexMap = getFlexCheckoutMap_(monthParam, userIdParam)[userIdParam] || {};
+      } catch (flexErr) {
+        Logger.log(' 讀取彈性下班申請失敗: ' + flexErr);
+      }
+    }
+    
     // 判斷每日狀態
     Object.keys(dailyRecords).forEach(dateKey => {
       const daily = dailyRecords[dateKey];
       
       const hasPunchIn = daily.record.some(r => r.type === '上班');
       const hasPunchOut = daily.record.some(r => r.type === '下班');
+      
+      // 當日工作地點：以當天最後一次下班打卡的地點為準
+      // （核准的補打卡是事後才附加到表尾，列的順序不等於時間順序，所以比時間）
+      const lastOut = daily.record
+        .filter(r => r.type === '下班')
+        .reduce((latest, r) => (!latest || String(r.time) > String(latest.time)) ? r : latest, null);
+      daily.workLocation = lastOut ? (lastOut.location || '') : '';
+      daily.flexCheckout = flexMap[dateKey] || null;
       
       //  修正：如果有請假，根據打卡情況設定狀態
       if (daily.leave) {
@@ -2237,5 +2264,9 @@ function qrPunch(sessionToken, qrTokenId, locationName) {
   attendanceSh.getRange(attendanceSh.getLastRow() + 1, 1, 1, punchRow.length).setValues([punchRow]);
 
   Logger.log('QR打卡成功: ' + user.name + ' - ' + punchType + ' - ' + loc);
-  return { ok: true, code: 'PUNCH_SUCCESS', params: { type: punchType, location: loc } };
+  const result = { ok: true, code: 'PUNCH_SUCCESS', params: { type: punchType, location: loc } };
+  if (punchType === '下班') {
+    result.checkout = buildCheckoutSummary_(user.userId, now, loc, rows);
+  }
+  return result;
 }

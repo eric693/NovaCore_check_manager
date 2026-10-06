@@ -123,3 +123,75 @@ function setElementSrc(id, src) {
     if (el) el.src = src;
     return el;
 }
+
+// ===== 定位 =====
+// getCurrentPosition() 不帶參數時 enableHighAccuracy 是 false，手機會用基地台／Wi-Fi 粗估，
+// 誤差動輒幾百公尺到幾公里，座標落進隔壁客戶的範圍，打卡紀錄的地點就記錯。
+// 而且第一個回報的點通常最不準（GPS 還沒鎖定），所以持續監聽一小段時間取誤差最小的那筆。
+
+/**
+ * 取得盡量精確的目前位置
+ * @param {Object} [opts]
+ * @param {number} [opts.goodEnough=30] 誤差（公尺）小於這個值就立刻回傳
+ * @param {number} [opts.maxWait=12000] 最多等多久（毫秒）；時間到就回傳目前最好的一筆
+ * @returns {Promise<{latitude:number, longitude:number, accuracy:number}>}
+ *          失敗時 reject 的錯誤帶有 code（1 權限、2 無法定位、3 逾時），與原生 GeolocationPositionError 相同
+ */
+function getAccuratePosition({ goodEnough = 30, maxWait = 12000 } = {}) {
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            const err = new Error('Geolocation not supported');
+            err.code = 2;
+            reject(err);
+            return;
+        }
+
+        let best = null;
+        let watchId = null;
+        let timer = null;
+        let settled = false;
+
+        const finish = (fn, value) => {
+            if (settled) return;
+            settled = true;
+            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+            clearTimeout(timer);
+            fn(value);
+        };
+        const done = () => best
+            ? finish(resolve, best)
+            : finish(reject, Object.assign(new Error('Location timeout'), { code: 3 }));
+
+        timer = setTimeout(done, maxWait);
+        watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+                const { latitude, longitude, accuracy } = pos.coords;
+                if (!best || accuracy < best.accuracy) {
+                    best = { latitude, longitude, accuracy };
+                }
+                if (accuracy <= goodEnough) done();
+            },
+            (err) => {
+                // 拒絕權限不用再等；其他錯誤若已經有一筆就先用
+                if (err.code === 1 || !best) finish(reject, err);
+                else done();
+            },
+            { enableHighAccuracy: true, maximumAge: 0, timeout: maxWait }
+        );
+    });
+}
+
+/**
+ * 定位錯誤轉成給使用者看的訊息
+ */
+function geolocationErrorMessage(err) {
+    const tr = (key, fallback) => {
+        const s = typeof t === 'function' ? t(key) : key;
+        return s && s !== key ? s : fallback;
+    };
+    switch (err && err.code) {
+        case 1: return tr('ERROR_GEOLOCATION_PERMISSION_DENIED', '請允許瀏覽器存取位置');
+        case 3: return tr('ERROR_GEOLOCATION_TIMEOUT', '定位逾時，請確認 GPS 已開啟');
+        default: return tr('ERROR_GEOLOCATION_UNAVAILABLE', '目前無法取得位置');
+    }
+}

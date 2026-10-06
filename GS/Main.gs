@@ -48,7 +48,19 @@ function doGet(e) {
         return respond1(handleAddLocation(e.parameter));
       case "getLocations":
         return respond1(handleGetLocation());
-      
+      case "geocodeAddress":
+        return respond1(handleGeocodeAddress(e.parameter));
+
+      // ==================== 彈性下班原因 ====================
+      case "getMyFlexCheckout":
+        return respond1(handleGetMyFlexCheckout(e.parameter));
+      case "submitFlexCheckout":
+        return respond1(handleSubmitFlexCheckout(e.parameter));
+      case "getPendingFlexCheckout":
+        return respond1(handleGetPendingFlexCheckout(e.parameter));
+      case "reviewFlexCheckout":
+        return respond1(handleReviewFlexCheckout(e.parameter));
+
       case "setEmployeeBasicInfo":
         return respond1(handleSetEmployeeBasicInfo(e.parameter));
 

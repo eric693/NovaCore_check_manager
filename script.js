@@ -212,7 +212,8 @@ async function ensureLogin()
           setElementDisplay('main-app', 'block');
           
           renderAbnormalRecords(res.abnormalRecords);
-          
+          if (typeof loadFlexCheckoutPending === 'function') loadFlexCheckoutPending();
+
           resolve(true);
         } else {
           console.error(' initApp 失敗');
@@ -263,6 +264,8 @@ async function checkSessionInBackground(token) {
  * 背景載入異常記錄（不阻塞 UI）
  */
 async function loadAbnormalRecordsInBackground() {
+    // 同一個時機一起檢查有沒有待填的彈性下班原因（flex-checkout.js，獨立請求不互相拖累）
+    if (typeof loadFlexCheckoutPending === 'function') loadFlexCheckoutPending();
     try {
       const now = new Date();
       const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -1108,7 +1111,7 @@ async function renderDailyRecords(dateKey) {
                                                     ${r.time} - <span data-i18n="${typeKey}">${t(typeKey)}</span>
                                                 </p>
                                                 <p class="text-sm text-gray-500 dark:text-gray-400">
-                                                     ${r.location}
+                                                     ${escapeHtml(r.location)}
                                                 </p>
                                                 ${r.note ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-1"> ${escapeHtml(r.note)}</p>` : ''}
                                             </div>
@@ -1264,7 +1267,31 @@ async function renderDailyRecords(dateKey) {
                     </div>
                 `;
                 
-                li.innerHTML = titleHtml + recordHtml + overtimeHtml + leaveHtml + statusHtml;
+                // 當日工作地點（以下班打卡地點為準）與彈性下班原因
+                let workLocationHtml = '';
+                if (recordData.workLocation || recordData.flexCheckout) {
+                    const fx = recordData.flexCheckout;
+                    const fxColor = !fx ? '' : fx.status === '已核准'
+                        ? 'text-green-600 dark:text-green-400'
+                        : fx.status === '已拒絕' ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400';
+                    workLocationHtml = `
+                        <div class="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-600 space-y-1">
+                            ${recordData.workLocation ? `
+                                <p class="text-sm text-gray-700 dark:text-gray-300">
+                                    <span class="font-semibold">${escapeHtml(t('WORK_LOCATION_LABEL'))}：</span>${escapeHtml(recordData.workLocation)}
+                                </p>` : ''}
+                            ${fx ? `
+                                <p class="text-sm text-gray-700 dark:text-gray-300">
+                                    <span class="font-semibold">${escapeHtml(t('FLEX_REASON_LABEL'))}：</span>${escapeHtml(fx.reason)}
+                                    <span class="${fxColor} font-semibold ml-1">（${escapeHtml(t(FLEX_STATUS_KEYS[fx.status] || fx.status))}）</span>
+                                </p>
+                                ${fx.comment ? `<p class="text-xs text-gray-500 dark:text-gray-400">${escapeHtml(t('FLEX_REVIEW_COMMENT'))}：${escapeHtml(fx.comment)}</p>` : ''}
+                            ` : ''}
+                        </div>
+                    `;
+                }
+                
+                li.innerHTML = titleHtml + recordHtml + workLocationHtml + overtimeHtml + leaveHtml + statusHtml;
                 dailyRecordsList.appendChild(li);
                 renderTranslations(li);
             });
@@ -1679,9 +1706,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         getLocationBtn.textContent = '取得中...';
         getLocationBtn.disabled = true;
         
-        navigator.geolocation.getCurrentPosition((pos) => {
-            const lat = pos.coords.latitude;
-            const lng = pos.coords.longitude;
+        // 原本用低精度定位又沒設逾時：室內常拿到幾百公尺外的座標，或一直卡在「取得中...」
+        getAccuratePosition({ goodEnough: 20, maxWait: 15000 }).then((pos) => {
+            const lat = pos.latitude;
+            const lng = pos.longitude;
             const radius = parseInt(document.getElementById('location-radius').value); // 新增
             
             locationLatInput.value = lat.toFixed(6);
@@ -1718,10 +1746,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
             
-            showNotification(t('NOTIF_LOCATION_OK'), 'success');
-        }, (err) => {
-            showNotification(t("ERROR_GEOLOCATION", { msg: err.message }), "error");
-            getLocationBtn.textContent = '取得當前位置';
+            // 誤差大的話提醒管理員在地圖上拖曳微調，不然地點本身就存錯了
+            const acc = Math.round(pos.accuracy);
+            if (acc > 50) {
+                showNotification(t('NOTIF_LOCATION_OK_INACCURATE', { accuracy: acc }), 'warning');
+            } else {
+                showNotification(t('NOTIF_LOCATION_OK'), 'success');
+            }
+            getLocationBtn.textContent = t('GET_LOCATION_BTN');
+            getLocationBtn.disabled = false;
+        }).catch((err) => {
+            showNotification(t("ERROR_GEOLOCATION", { msg: geolocationErrorMessage(err) }), "error");
+            getLocationBtn.textContent = t('GET_LOCATION_BTN');
             getLocationBtn.disabled = false;
         });
     });
@@ -1826,6 +1862,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else if (tabId === 'admin-view') {
             fetchAndRenderReviewRequests();
             loadPendingOvertimeRequests();
+            loadPendingFlexCheckout();
             loadPendingWorklogs();  // 
             loadPendingLeaveRequests();
             displayAdminAnnouncements();
@@ -2798,44 +2835,45 @@ async function doPunch(type) {
         }
     }
     
-    if (!navigator.geolocation) {
-        showNotification(t("ERROR_GEOLOCATION", { msg: "您的瀏覽器不支援地理位置功能。" }), "error");
+    let pos;
+    try {
+        button.textContent = t('LOCATING') || '定位中...';
+        pos = await getAccuratePosition();
+    } catch (err) {
+        showNotification(t("ERROR_GEOLOCATION", { msg: geolocationErrorMessage(err) }), "error");
         generalButtonState(button, 'idle');
-        _isPunching = false;
+        _isPunching = false;  //  釋放鎖（定位失敗也要釋放）
         return;
     }
 
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        const now = new Date();
-        const datetime = now.toISOString();
+    button.textContent = loadingText;
+    const { latitude: lat, longitude: lng, accuracy } = pos;
+    const datetime = new Date().toISOString();
+    const action = `punch&type=${encodeURIComponent(type)}&lat=${lat}&lng=${lng}&acc=${Math.round(accuracy)}`
+        + `&datetime=${encodeURIComponent(datetime)}&note=${encodeURIComponent(navigator.userAgent)}`;
 
-        const action = `punch&type=${encodeURIComponent(type)}&lat=${lat}&lng=${lng}&datetime=${encodeURIComponent(datetime)}&note=${encodeURIComponent(navigator.userAgent)}`;
+    try {
+        const res = await callApifetch(action);
+        const msg = t(res.code || "UNKNOWN_ERROR", res.params || {});
+        showNotification(msg, res.ok ? "success" : "error");
 
-        try {
-            const res = await callApifetch(action);
-            const msg = t(res.code || "UNKNOWN_ERROR", res.params || {});
-            showNotification(msg, res.ok ? "success" : "error");
-
-            if (res.ok) {
-                clearMonthDataCache(); // 打卡成功，出勤記錄的快取已經過期
-            }
-
-            if (res.ok && type === '上班') {
-                clearShiftCache();
-            }
-        } catch (err) {
-            console.error(err);
-        } finally {
-            generalButtonState(button, 'idle');
-            _isPunching = false;  //  釋放鎖
+        if (res.ok) {
+            clearMonthDataCache(); // 打卡成功，出勤記錄的快取已經過期
         }
-    }, (err) => {
-        showNotification(t("ERROR_GEOLOCATION", { msg: err.message }), "error");
+
+        if (res.ok && type === '上班') {
+            clearShiftCache();
+        }
+
+        if (res.ok && res.checkout) {
+            handleCheckoutSummary(res.checkout);
+        }
+    } catch (err) {
+        console.error(err);
+    } finally {
         generalButtonState(button, 'idle');
-        _isPunching = false;  //  釋放鎖（定位失敗也要釋放）
-    });
+        _isPunching = false;  //  釋放鎖
+    }
 }
 
 /**
@@ -3966,28 +4004,32 @@ async function handleLinePunchFromUrl() {
     };
 
     try {
-        const position = await new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-                timeout: 15000,
-                enableHighAccuracy: true
-            });
-        });
+        const position = await getAccuratePosition({ maxWait: 15000 });
 
         overlay.querySelector('#lpo-title').textContent = '正在打卡...';
         overlay.querySelector('#lpo-sub').textContent = '';
 
         const params = new URLSearchParams({
             token: token,
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
+            lat: position.latitude,
+            lng: position.longitude,
+            acc: Math.round(position.accuracy)
         });
 
         const res = await callApifetch(`linePunch&${params.toString()}`);
 
         if (res.ok) {
             const typeText = res.punchType === '上班' ? '🟢 上班打卡' : '🟠 下班打卡';
-            const detailText = `${res.location ? res.location + '｜' : ''}${res.time || ''}`;
+            let detailText = `${res.location ? res.location + '｜' : ''}${res.time || ''}`;
+            // LINE 打卡頁不一定有登入，這裡只提醒；登入後首頁的「彈性下班原因」卡片會列出待填的日子
+            if (res.checkout && res.checkout.flexRequired) {
+                detailText += '\n' + t('FLEX_LINE_PUNCH_HINT', {
+                    hours: res.checkout.workedHours,
+                    min: res.checkout.minHours
+                });
+            }
             setResult('✅', typeText + ' 成功！', detailText, '#4CAF50');
+            overlay.querySelector('#lpo-sub').style.whiteSpace = 'pre-line';
 
             // 3 秒倒數後自動關閉，並嘗試返回上一頁
             const card = overlay.querySelector('div');
@@ -4018,13 +4060,13 @@ async function handleLinePunchFromUrl() {
                 ERR_LPT_INVALID:  '連結無效或已使用，請重新在 LINE 輸入打卡指令',
                 ERR_LPT_EXPIRED:  '連結已過期（5 分鐘），請重新在 LINE 輸入打卡指令',
                 ERR_NOT_IN_RANGE: res.msg || '不在打卡範圍內',
-                ERR_DUPLICATE_PUNCH: '您剛剛已打過卡了'
+                ERR_DUPLICATE_PUNCH: '您剛剛已打過卡了',
+                ERR_LOCATION_INACCURATE: t('ERR_LOCATION_INACCURATE', res.params || {})
             };
             setResult('❌', '打卡失敗', msgMap[res.code] || res.msg || '請稍後再試', '#f44336');
         }
     } catch (err) {
-        const geoErrors = { 1: '請允許位置存取權限後重試', 3: 'GPS 逾時，請確認定位已開啟' };
-        setResult('❌', '無法取得位置', geoErrors[err.code] || '請確認 GPS 已開啟', '#f44336');
+        setResult('❌', '無法取得位置', geolocationErrorMessage(err), '#f44336');
     }
 }
 
@@ -4064,6 +4106,8 @@ async function performQRPunch(qrTokenId) {
             const type = (res.params && res.params.type) || '';
             const loc  = (res.params && res.params.location) || '';
             showNotification(t('NOTIF_QR_PUNCH_OK', { detail: `${type || ''}${loc ? ' - ' + loc : ''}`.trim() }), 'success');
+            clearMonthDataCache();
+            if (res.checkout) handleCheckoutSummary(res.checkout);
             // 重新載入異常記錄
             await loadAbnormalRecordsInBackground();
         } else {

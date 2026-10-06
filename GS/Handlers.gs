@@ -192,8 +192,8 @@ function handleExchangeToken(otoken) {
 // ==================== 打卡功能相關 ====================
 
 function handlePunch(params) {
-  const { token, type, lat, lng, note } = params;
-  return punch(token, type, parseFloat(lat), parseFloat(lng), note);
+  const { token, type, lat, lng, note, acc } = params;
+  return punch(token, type, parseFloat(lat), parseFloat(lng), note, acc);
 }
 
 // function handleAdjustPunch(params) {
@@ -229,6 +229,11 @@ function handleLinePunchWithToken(params) {
       return { ok: false, code: 'ERR_LPT_EXPIRED', msg: '打卡連結已過期（5 分鐘），請重新在 LINE 輸入打卡指令' };
     }
 
+    // 定位誤差太大會落到別的地點範圍。這裡先擋、還不刪 token，
+    // 員工開好精確位置後用同一個連結重試就好，不用回 LINE 重新要連結
+    const accuracyError = checkPunchAccuracy_(params.acc);
+    if (accuracyError) return accuracyError;
+
     // 單次使用：立即刪除 token
     props.deleteProperty(key);
 
@@ -250,8 +255,13 @@ function handleLinePunchWithToken(params) {
       return { ok: false, code: 'ERR_DUPLICATE_PUNCH', msg: '您剛剛已經打過卡了，請勿重複操作' };
     }
 
+    // 摘要要用寫入前的打卡表算（buildCheckoutSummary_ 會自己補上這筆下班時間）
+    const attendanceBefore = punchType === '下班'
+      ? SpreadsheetApp.getActive().getSheetByName(SHEET_ATTENDANCE).getDataRange().getValues()
+      : null;
+
     // 執行打卡
-    const result = executePunch(userId, punchType, latF, lngF, locationCheck.locationName);
+    const result = executePunch(userId, punchType, latF, lngF, locationCheck.locationName, params.acc);
 
     if (!result.success) {
       return { ok: false, code: 'ERR_PUNCH_FAILED', msg: result.message };
@@ -285,7 +295,10 @@ function handleLinePunchWithToken(params) {
       ok: true,
       punchType: punchType,
       time: result.time,
-      location: locationCheck.locationName
+      location: locationCheck.locationName,
+      checkout: attendanceBefore
+        ? buildCheckoutSummary_(userId, result.punchedAt, locationCheck.locationName, attendanceBefore)
+        : null
     };
 
   } catch (err) {
@@ -511,8 +524,10 @@ function handleGetAttendanceDetails(params) {
 // ==================== 地點管理相關 ====================
 
 function handleAddLocation(params) {
-  const { name, lat, lng } = params;
-  return addLocation(name, lat, lng);
+  // radius 原本沒有傳下去，管理員設的範圍一律變成預設 200 公尺，
+  // 相鄰地點的範圍因此重疊，打卡就可能被記到隔壁的地點
+  const { name, lat, lng, radius } = params;
+  return addLocation(name, lat, lng, radius);
 }
 
 function handleGetLocation() {

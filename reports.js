@@ -198,8 +198,10 @@ async function exportAttendanceReport(date) {
                 '上班地點': punchIn?.location || '-',
                 '下班時間': punchOut?.time || '-',
                 '下班地點': punchOut?.location || '-',
+                '當日工作地點': record.workLocation || '-',
                 '工作時數': workHours,
                 '狀態': statusText,
+                '彈性下班原因': formatFlexForExport(record.flexCheckout),
                 '備註': notes || '-'
             });
         });
@@ -214,8 +216,10 @@ async function exportAttendanceReport(date) {
             { wch: 20 },  // 上班地點
             { wch: 10 },  // 下班時間
             { wch: 20 },  // 下班地點
+            { wch: 20 },  // 當日工作地點
             { wch: 10 },  // 工作時數
             { wch: 15 },  // 狀態
+            { wch: 30 },  // 彈性下班原因
             { wch: 30 }   // 備註
         ];
         ws['!cols'] = wscols;
@@ -361,9 +365,11 @@ async function exportEmployeePunchReport() {
                 '上班地點': punchInRecord?.location || '-',
                 '下班時間': punchOutRecord ? `${punchOutRecord.time}:00` : '-',
                 '下班地點': punchOutRecord?.location || '-',
+                '當日工作地點': record.workLocation || '-',
                 '工作時數': workHours,
                 '工時（小時）': workHoursDecimal > 0 ? workHoursDecimal.toFixed(2) : '-',
                 '狀態': statusText,
+                '彈性下班原因': formatFlexForExport(record.flexCheckout),
                 '備註': notes || '-'
             });
         });
@@ -403,9 +409,11 @@ async function exportEmployeePunchReport() {
             { wch: 25 },  // 上班地點
             { wch: 12 },  // 下班時間
             { wch: 25 },  // 下班地點
+            { wch: 25 },  // 當日工作地點
             { wch: 15 },  // 工作時數
             { wch: 12 },  // 工時（小時）
             { wch: 18 },  // 狀態
+            { wch: 30 },  // 彈性下班原因
             { wch: 30 }   // 備註
         ];
         ws['!cols'] = wscols;
@@ -430,4 +438,12 @@ async function exportEmployeePunchReport() {
             generalButtonState(exportBtn, 'idle');
         }
     }
+}
+
+/**
+ * 匯出用：彈性下班原因加上審核狀態
+ */
+function formatFlexForExport(fx) {
+    if (!fx) return '-';
+    return `${fx.reason}（${fx.status}${fx.comment ? '：' + fx.comment : ''}）`;
 }

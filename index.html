@@ -379,6 +379,15 @@
                             </div>
                         </div>
                     </div>
+                    <!-- 彈性下班原因：上班時數未滿時請員工填寫，送管理員審核 -->
+                    <div id="flex-checkout-section" class="card p-6 border-2 border-amber-300 dark:border-amber-600" style="display: none;">
+                        <h2 data-i18n="FLEX_SECTION_TITLE"
+                            class="text-xl font-bold text-gray-800 dark:text-white mb-2">
+                            彈性下班原因待填寫
+                        </h2>
+                        <p id="flex-checkout-desc" class="text-gray-500 dark:text-gray-400 mb-4"></p>
+                        <ul id="flex-checkout-list" class="space-y-3"></ul>
+                    </div>
                     <!--  修正：考勤紀錄區塊 -->
                     <div id="abnormal-records-section" class="card p-6" style="display: none;">
                         <h2 data-i18n="ABNORMAL_RECORDS_TITLE" 
@@ -1185,6 +1194,33 @@
                         </div>
                     </div>
                     
+                    <!-- 彈性下班原因審核 -->
+                    <div class="card p-6 mt-6">
+                        <h2 data-i18n="FLEX_PENDING_TITLE"
+                            class="text-xl font-bold text-gray-800 dark:text-white mb-2">
+                            待審核彈性下班原因
+                        </h2>
+                        <p data-i18n="FLEX_PENDING_DESCRIPTION"
+                           class="text-gray-500 dark:text-gray-400 mb-4">
+                            員工當日上班時數未滿 9 小時所填寫的原因
+                        </p>
+                        <div id="pending-flex-container">
+                            <div id="flex-requests-loading"
+                                 data-i18n="REQUESTS_LOADING"
+                                 class="text-center text-gray-500 dark:text-gray-400 py-4">
+                                正在載入請求...
+                            </div>
+                            <div id="flex-requests-empty"
+                                 class="text-center text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 p-4 rounded-lg"
+                                 style="display: none;">
+                                <p data-i18n="FLEX_NO_PENDING" class="font-semibold">
+                                    目前沒有待審核的彈性下班原因。
+                                </p>
+                            </div>
+                            <ul id="pending-flex-list" class="space-y-3"></ul>
+                        </div>
+                    </div>
+                    
                     <!--  請假審核區塊 -->
                     <div class="card p-6 mt-6">
                         <h2 data-i18n="LEAVE_PENDING_TITLE" 
@@ -1236,7 +1272,7 @@
                                     <input type="text" 
                                            id="location-search" 
                                            data-i18n="SEARCH_LOCATION_PLACEHOLDER"
-                                           placeholder="輸入地址或地點名稱搜尋..." 
+                                           placeholder="輸入地址、地點名稱，或貼上 Google 地圖座標／連結" 
                                            class="w-full p-3 pr-10 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
                                     <button id="search-location-btn" 
                                             class="absolute right-2 top-1/2 transform -translate-y-1/2 text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300">
@@ -1275,14 +1311,14 @@
                                            id="location-lat" 
                                            data-i18n="LATITUDE_LABEL"
                                            placeholder="緯度" 
-                                           readonly 
-                                           class="w-1/2 p-2 rounded-md border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-600 dark:text-white shadow-sm cursor-not-allowed">
+                                           inputmode="decimal" 
+                                           class="w-1/2 p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
                                     <input type="text" 
                                            id="location-lng" 
                                            data-i18n="LONGITUDE_LABEL"
                                            placeholder="經度" 
-                                           readonly 
-                                           class="w-1/2 p-2 rounded-md border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-600 dark:text-white shadow-sm cursor-not-allowed">
+                                           inputmode="decimal" 
+                                           class="w-1/2 p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
                                 </div>
                                 <p data-i18n="LOCATION_PICKER_HINT"
                                    class="text-xs text-gray-500 dark:text-gray-400 mt-2">
@@ -1703,6 +1739,7 @@
         <script src="help.js"></script>
         <script src="script.js"></script>
         <script src="location-picker.js"></script>
+        <script src="flex-checkout.js"></script>
         <script src="analytics.js"></script>
         <script src="biometric.js"></script>
         <script src="reports.js"></script>
