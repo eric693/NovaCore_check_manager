@@ -1863,6 +1863,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             fetchAndRenderReviewRequests();
             loadPendingOvertimeRequests();
             loadPendingFlexCheckout();
+            initSheetAdmin();
             loadPendingWorklogs();  // 
             loadPendingLeaveRequests();
             displayAdminAnnouncements();

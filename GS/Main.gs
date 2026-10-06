@@ -61,6 +61,16 @@ function doGet(e) {
       case "reviewFlexCheckout":
         return respond1(handleReviewFlexCheckout(e.parameter));
 
+      // ==================== 資料表管理（管理員） ====================
+      case "sheetAdminList":
+        return respond1(handleSheetAdminList(e.parameter));
+      case "sheetAdminGet":
+        return respond1(handleSheetAdminGet(e.parameter));
+      case "sheetAdminSave":
+        return respond1(handleSheetAdminSave(e.parameter));
+      case "sheetAdminDelete":
+        return respond1(handleSheetAdminDelete(e.parameter));
+
       case "setEmployeeBasicInfo":
         return respond1(handleSetEmployeeBasicInfo(e.parameter));
 
