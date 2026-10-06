@@ -1034,5 +1034,6 @@
   "DATA_ADMIN_LOGIN_FIRST": "Vui lòng đăng nhập ở trang chủ trước.",
   "DATA_ADMIN_ADMIN_ONLY": "Trang này chỉ dành cho quản lý.",
   "DATA_ADMIN_OPEN": "Mở quản lý dữ liệu",
-  "DATA_ADMIN_OPEN_DESC": "Xem, thêm, sửa, xóa dữ liệu chấm công, nghỉ phép, tăng ca..."
+  "DATA_ADMIN_OPEN_DESC": "Xem, thêm, sửa, xóa dữ liệu chấm công, nghỉ phép, tăng ca...",
+  "FLEX_DEDUCTION_NOTE": "Khi quản lý duyệt lý do sẽ không bị trừ về sớm. Nếu không được duyệt, phần thiếu so với {min} giờ sẽ bị trừ như về sớm."
 }

@@ -2225,62 +2225,12 @@ function calculateMonthlySalaryInternal(employeeId, yearMonth) {
     Logger.log(`   - 國定假日出勤薪資: $${holidayWorkPay}`);
     Logger.log(`   - 國定假日加班費: $${holidayOvertimePay}`);
     
-    // 6.5 ⭐⭐⭐ 早退扣款（僅月薪員工）- 修正版
-    let earlyLeaveDeduction = 0;
-
-    Logger.log(`\n 開始計算早退扣款...`);
-
-    // 取得該月份的打卡記錄
-    const attendanceRecords = getEmployeeMonthlyAttendanceInternal(employeeId, yearMonth);
-
-    attendanceRecords.forEach(record => {
-      const date = record.date;
-      
-      // ⭐⭐⭐ 使用 try-catch 避免錯誤中斷流程
-      try {
-        // 取得該日期的排班資訊
-        const shiftResult = getEmployeeShiftForDate(employeeId, date);
-        
-        if (shiftResult && shiftResult.success && shiftResult.hasShift) {
-          const shift = shiftResult.data;
-          const scheduledEndTime = shift.endTime;
-          const actualEndTime = record.punchOut;
-          
-          if (scheduledEndTime && actualEndTime) {
-            // 解析時間（處理跨日班）
-            const [schedHour, schedMin] = scheduledEndTime.split(':').map(Number);
-            const [actualHour, actualMin] = actualEndTime.split(':').map(Number);
-            
-            // 轉換為分鐘數（跨日班需要特殊處理）
-            let schedMinutes = schedHour * 60 + schedMin;
-            let actualMinutes = actualHour * 60 + actualMin;
-            
-            // 如果是跨日班（下班時間 < 上班時間），下班時間加24小時
-            if (schedHour < 12) {
-              schedMinutes += 24 * 60;
-            }
-            
-            if (actualHour < 12 && record.punchIn && record.punchIn.startsWith('1')) {
-              actualMinutes += 24 * 60;
-            }
-            
-            // 計算早退分鐘數
-            if (actualMinutes < schedMinutes) {
-              const earlyMinutes = schedMinutes - actualMinutes;
-              const earlyHours = earlyMinutes / 60;
-              const deduction = Math.round(hourlyRate * earlyHours);
-              
-              earlyLeaveDeduction += deduction;
-              
-              Logger.log(`   ${date}: 早退 ${earlyMinutes} 分鐘 (${earlyHours.toFixed(2)}h) → 扣款 $${deduction}`);
-            }
-          }
-        }
-      } catch (shiftError) {
-        // 如果取得排班失敗，記錄警告但繼續處理
-        Logger.log(`    ${date}: 無法取得排班資訊，跳過早退檢查`);
-      }
-    });
+    // 6.5 早退扣款（僅月薪員工）
+    // 彈性上下班：不比對排班的下班時間，改看當天實際工時是否滿 9 小時，
+    // 未滿且彈性下班原因沒有核准才扣不足的時數（規則見 FlexCheckout.gs calculateFlexEarlyLeave_）
+    Logger.log(`\n 開始計算早退扣款（彈性上下班）...`);
+    const earlyLeave = calculateFlexEarlyLeave_(employeeId, yearMonth, hourlyRate);
+    const earlyLeaveDeduction = earlyLeave.deduction;
 
     Logger.log(`\n 早退扣款統計:`);
     Logger.log(`   合計扣款: $${earlyLeaveDeduction}`);

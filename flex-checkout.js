@@ -73,7 +73,7 @@ function renderFlexCheckoutPending(res) {
         if (r.status === '已拒絕' && !rejected[r.date]) rejected[r.date] = r;
     });
 
-    desc.textContent = t('FLEX_SECTION_DESC', { min: res.minHours });
+    desc.textContent = t('FLEX_SECTION_DESC', { min: res.minHours }) + ' ' + t('FLEX_DEDUCTION_NOTE', { min: res.minHours });
     list.innerHTML = '';
     res.pending.forEach(day => {
         const li = document.createElement('li');
@@ -111,6 +111,9 @@ function openFlexCheckoutDialog(day, minHours) {
             <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-2">${escapeHtml(t('FLEX_DIALOG_TITLE'))}</h3>
             <p class="text-sm text-gray-600 dark:text-gray-300 mb-1">
                 ${escapeHtml(t('FLEX_DIALOG_DESC', { date: day.date, hours: day.workedHours, min: minHours || 9 }))}
+            </p>
+            <p class="text-xs text-amber-700 dark:text-amber-400 mb-1">
+                ${escapeHtml(t('FLEX_DEDUCTION_NOTE', { min: minHours || 9 }))}
             </p>
             ${day.workLocation ? `<p class="text-sm text-gray-500 dark:text-gray-400 mb-3">📍 ${escapeHtml(day.workLocation)}</p>` : '<div class="mb-3"></div>'}
             <label for="flex-reason-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">${escapeHtml(t('FLEX_REASON_LABEL'))}</label>

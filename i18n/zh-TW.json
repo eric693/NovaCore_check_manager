@@ -1018,5 +1018,6 @@
     "DATA_ADMIN_LOGIN_FIRST": "請先回到首頁登入。",
     "DATA_ADMIN_ADMIN_ONLY": "此頁面僅限管理員使用。",
     "DATA_ADMIN_OPEN": "開啟資料管理",
-    "DATA_ADMIN_OPEN_DESC": "查看、新增、編輯、刪除打卡、請假、加班等試算表資料。"
+    "DATA_ADMIN_OPEN_DESC": "查看、新增、編輯、刪除打卡、請假、加班等試算表資料。",
+    "FLEX_DEDUCTION_NOTE": "原因經管理員核准後不列入早退扣款；未核准的話，不足 {min} 小時的部分會列入早退扣款。"
 }

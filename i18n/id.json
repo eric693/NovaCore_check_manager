@@ -978,5 +978,6 @@
   "DATA_ADMIN_LOGIN_FIRST": "Silakan login di halaman utama terlebih dahulu.",
   "DATA_ADMIN_ADMIN_ONLY": "Halaman ini khusus admin.",
   "DATA_ADMIN_OPEN": "Buka kelola data",
-  "DATA_ADMIN_OPEN_DESC": "Lihat, tambah, ubah, dan hapus data absen, cuti, lembur, dll."
+  "DATA_ADMIN_OPEN_DESC": "Lihat, tambah, ubah, dan hapus data absen, cuti, lembur, dll.",
+  "FLEX_DEDUCTION_NOTE": "Jika alasan disetujui admin, tidak ada potongan pulang awal. Jika tidak disetujui, kekurangan dari {min} jam dipotong sebagai pulang awal."
 }

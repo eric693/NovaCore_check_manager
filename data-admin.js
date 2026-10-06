@@ -387,6 +387,8 @@ async function openPunchEditor(row) {
         values[ATT.LOCATION] = loc.value.trim();
         values[ATT.NOTE] = note.value.trim();
         if (!original) values[ATT.DEVICE] = tr('DATA_ADMIN_ADDED_BY_ADMIN', {}, '管理員新增');
+        // 管理員自己輸入的補打卡就等於已核准；薪資與工時只計算「管理員審核 = v」的補打卡
+        if (values[ATT.NOTE] === '補打卡' && !values[ATT.AUDIT]) values[ATT.AUDIT] = 'v';
 
         const params = { sheet: '打卡紀錄', values: JSON.stringify(values) };
         if (row) {

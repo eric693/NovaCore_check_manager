@@ -1000,5 +1000,6 @@
   "DATA_ADMIN_LOGIN_FIRST": "Please log in on the home page first.",
   "DATA_ADMIN_ADMIN_ONLY": "This page is for admins only.",
   "DATA_ADMIN_OPEN": "Open data management",
-  "DATA_ADMIN_OPEN_DESC": "View, add, edit and delete punch, leave, overtime and other sheet data."
+  "DATA_ADMIN_OPEN_DESC": "View, add, edit and delete punch, leave, overtime and other sheet data.",
+  "FLEX_DEDUCTION_NOTE": "Once an admin approves the reason, no early-leave deduction applies. If it is not approved, the time short of {min} hours is deducted as early leave."
 }

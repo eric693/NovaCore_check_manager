@@ -978,5 +978,6 @@
   "DATA_ADMIN_LOGIN_FIRST": "先にトップページでログインしてください。",
   "DATA_ADMIN_ADMIN_ONLY": "このページは管理者専用です。",
   "DATA_ADMIN_OPEN": "データ管理を開く",
-  "DATA_ADMIN_OPEN_DESC": "打刻・休暇・残業などのデータを確認・追加・編集・削除します。"
+  "DATA_ADMIN_OPEN_DESC": "打刻・休暇・残業などのデータを確認・追加・編集・削除します。",
+  "FLEX_DEDUCTION_NOTE": "理由が管理者に承認されれば早退控除はありません。承認されない場合、{min} 時間に足りない分が早退控除になります。"
 }

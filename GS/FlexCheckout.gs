@@ -106,8 +106,13 @@ function flexTime_(d) {
   return Utilities.formatDate(new Date(d), flexTz_(), 'HH:mm');
 }
 
+// 跨夜班：上班卡到隔天的下班卡最多相隔這麼久，超過就不當成同一班
+const OVERNIGHT_MAX_SHIFT_MS = 16 * 60 * 60 * 1000;
+
 /**
- * 把打卡表整理成「每人每天」：第一次上班、最後一次下班、下班地點。
+ * 把打卡表整理成「每人每個工作日」：第一次上班、最後一次下班、下班地點。
+ * 工作日以上班卡的日期為準；跨夜班（22:00 上班、隔天 07:00 下班）會把隔天清晨那張下班卡
+ * 算回前一天，不然兩天都只有半張卡、算不出工時。
  * @param {Array[]} values 打卡紀錄工作表的 getValues()（含標題列）
  * @param {string} userId 只看這個員工
  * @param {string} [sinceKey] 只看這天（含）之後，yyyy-MM-dd
@@ -123,15 +128,37 @@ function collectWorkDays_(values, userId, sinceKey) {
     const key = flexDateKey_(time);
     if (sinceKey && key < sinceKey) continue;
 
+    // 未核准的補打卡不算（和薪資計算 getEmployeeMonthlyAttendanceInternal 的規則一致）
+    if (String(row[7] || '').trim() === '補打卡' && String(row[8] || '').trim() !== 'v') continue;
+
     const type = String(row[4]).trim();
-    const day = days[key] || (days[key] = { firstIn: null, lastOut: null, outLocation: '' });
-    if (type === '上班' && (!day.firstIn || time < day.firstIn)) {
-      day.firstIn = time;
-    } else if (type === '下班' && (!day.lastOut || time > day.lastOut)) {
-      day.lastOut = time;
-      day.outLocation = String(row[6] || '');
+    const day = days[key] || (days[key] = { firstIn: null, lastOut: null, outLocation: '', firstOut: null, firstOutLocation: '' });
+    if (type === '上班') {
+      if (!day.firstIn || time < day.firstIn) day.firstIn = time;
+    } else if (type === '下班') {
+      const location = String(row[6] || '');
+      if (!day.lastOut || time > day.lastOut) { day.lastOut = time; day.outLocation = location; }
+      if (!day.firstOut || time < day.firstOut) { day.firstOut = time; day.firstOutLocation = location; }
     }
   }
+
+  // 跨夜配對：這天有上班卡、但當天沒有在上班之後的下班卡 → 找隔天清晨（隔天上班之前）的第一張下班卡
+  const keys = Object.keys(days).sort();
+  keys.forEach((key, i) => {
+    const day = days[key];
+    if (!day.firstIn || (day.lastOut && day.lastOut > day.firstIn)) return;
+    const next = days[keys[i + 1]];
+    if (!next || !next.firstOut) return;
+    if (next.firstIn && next.firstOut > next.firstIn) return;          // 隔天的下班卡是隔天自己那班的
+    if (next.firstOut - day.firstIn > OVERNIGHT_MAX_SHIFT_MS) return;  // 隔太久，不是同一班
+    day.lastOut = next.firstOut;
+    day.outLocation = next.firstOutLocation;
+    // 那張卡已經歸給前一天；隔天若只有這一張下班卡，就不再算成隔天的下班
+    if (next.lastOut && next.lastOut.getTime() === next.firstOut.getTime()) {
+      next.lastOut = null;
+      next.outLocation = '';
+    }
+  });
   return days;
 }
 
@@ -202,9 +229,15 @@ function normalizeFlexDate_(v) {
  * @param {Array[]} values 寫入這筆下班卡「之前」讀到的打卡表
  */
 function buildCheckoutSummary_(userId, outTime, outLocation, values) {
-  const key = flexDateKey_(outTime);
-  const day = collectWorkDays_(values, userId, key)[key] || { firstIn: null, lastOut: null };
-  day.lastOut = outTime;
+  // 把這張下班卡加進去再整理，跨夜班才會歸到上班那天
+  const since = flexDateKey_(new Date(outTime.getTime() - 24 * 60 * 60 * 1000));
+  const withOut = values.concat([[outTime, userId, '', '', '下班', '', outLocation || '']]);
+  const days = collectWorkDays_(withOut, userId, since);
+  let key = flexDateKey_(outTime);
+  Object.keys(days).forEach(k => {
+    if (days[k].lastOut && days[k].lastOut.getTime() === outTime.getTime() && days[k].firstIn) key = k;
+  });
+  const day = days[key] || { firstIn: null, lastOut: null };
 
   const hours = workedHours_(day);
   const summary = {
@@ -467,4 +500,64 @@ function getFlexCheckoutMap_(monthParam, userIdParam) {
     };
   }
   return map;
+}
+
+
+// ==================== 早退扣款（彈性上下班） ====================
+
+/**
+ * 月薪員工的早退扣款。彈性上下班：不看排班的下班時間，看當天實際工時。
+ * - 第一次上班卡到最後一次下班卡（含午休）滿 FLEX_CHECKOUT_MIN_HOURS 小時 → 不算早退
+ * - 未滿，但彈性下班原因「已核准」→ 不扣
+ * - 未滿，原因沒填、待審核或被拒絕 → 扣「不足的時數 × 時薪」
+ * - 當天有核准的請假（例如半天假）→ 不扣，請假扣款另外算，避免重複扣
+ * - 只檢查有排班的日子（和原本一樣）；沒排班的日子（例如休假日來加班）不算早退
+ * - 上下班卡缺一張的日子算不出工時，交給補打卡流程，不在這裡扣
+ *
+ * @param {string} employeeId 員工 LINE userId
+ * @param {string} yearMonth yyyy-MM
+ * @param {number} hourlyRate 時薪
+ * @return {{ deduction: number, days: Array<{date, hours, shortHours, deduction}> }}
+ */
+function calculateFlexEarlyLeave_(employeeId, yearMonth, hourlyRate) {
+  const [y, m] = String(yearMonth).split('-').map(Number);
+  const rows = readAttendanceRowsSince_(new Date(y, m - 1, 0));
+  const days = collectWorkDays_(rows, employeeId, yearMonth + '-01');
+  const keys = Object.keys(days).filter(k => k.substring(0, 7) === yearMonth).sort();
+
+  const shortKeys = keys.filter(k => {
+    const h = workedHours_(days[k]);
+    return h !== null && h < FLEX_CHECKOUT_MIN_HOURS;
+  });
+  const result = { deduction: 0, days: [] };
+  if (!shortKeys.length) return result;
+
+  const leave = approvedLeaveDates_(employeeId, shortKeys);
+  const flex = getFlexCheckoutMap_(yearMonth, employeeId)[employeeId] || {};
+
+  shortKeys.forEach(date => {
+    const hours = workedHours_(days[date]);
+    if (leave[date]) {
+      Logger.log(`   ${date}: ${hours}h，當天有核准請假，不扣`);
+      return;
+    }
+    if (flex[date] && flex[date].status === FLEX_STATUS_APPROVED) {
+      Logger.log(`   ${date}: ${hours}h，彈性下班原因已核准，不扣`);
+      return;
+    }
+    try {
+      const shift = getEmployeeShiftForDate(employeeId, date);
+      if (!(shift && shift.success && shift.hasShift)) return;
+    } catch (err) {
+      Logger.log(`   ${date}: 無法取得排班資訊，跳過早退檢查`);
+      return;
+    }
+    const shortHours = Math.round((FLEX_CHECKOUT_MIN_HOURS - hours) * 100) / 100;
+    const deduction = Math.round(hourlyRate * shortHours);
+    result.deduction += deduction;
+    result.days.push({ date, hours, shortHours, deduction });
+    Logger.log(`   ${date}: 工時 ${hours}h，不足 ${shortHours}h` +
+               `（彈性下班原因：${flex[date] ? flex[date].status : '未填'}）→ 扣款 $${deduction}`);
+  });
+  return result;
 }
