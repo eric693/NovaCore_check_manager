@@ -979,5 +979,17 @@
   "DATA_ADMIN_ADMIN_ONLY": "このページは管理者専用です。",
   "DATA_ADMIN_OPEN": "データ管理を開く",
   "DATA_ADMIN_OPEN_DESC": "打刻・休暇・残業などのデータを確認・追加・編集・削除します。",
-  "FLEX_DEDUCTION_NOTE": "理由が管理者に承認されれば早退控除はありません。承認されない場合、{min} 時間に足りない分が早退控除になります。"
+  "FLEX_DEDUCTION_NOTE": "理由が管理者に承認されれば早退控除はありません。承認されない場合、{min} 時間に足りない分が早退控除になります。",
+  "LOCATION_LIST_TITLE": "登録済みの打刻場所",
+  "LOCATION_LIST_EMPTY": "打刻場所はまだ登録されていません。",
+  "LOCATION_RADIUS_VALUE": "範囲 {radius} m",
+  "LOCATION_VIEW_MAP": "Google マップで見る",
+  "LOCATION_OVERLAP_WARNING": "⚠ 「{names}」と範囲が重なっています。重なった場所での打刻は近いほうの場所として記録されます",
+  "LOCATION_EDITING": "「{name}」を編集中：名前の変更、地図上のマーカー移動、範囲の調整をして「変更を保存」を押してください。",
+  "LOCATION_SAVE_EDIT": "変更を保存",
+  "LOCATION_CANCEL_EDIT": "編集をキャンセル",
+  "LOCATION_DELETE_CONFIRM": "打刻場所「{name}」を削除しますか？削除後はここで打刻できなくなります。",
+  "LOCATION_UPDATE_SUCCESS": "✅ 打刻場所を更新しました",
+  "LOCATION_DELETE_SUCCESS": "✅ 打刻場所を削除しました",
+  "ERR_LAST_LOCATION": "打刻場所は最低1つ必要です。ないと誰も打刻できません"
 }

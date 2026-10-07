@@ -1019,5 +1019,17 @@
     "DATA_ADMIN_ADMIN_ONLY": "此頁面僅限管理員使用。",
     "DATA_ADMIN_OPEN": "開啟資料管理",
     "DATA_ADMIN_OPEN_DESC": "查看、新增、編輯、刪除打卡、請假、加班等試算表資料。",
-    "FLEX_DEDUCTION_NOTE": "原因經管理員核准後不列入早退扣款；未核准的話，不足 {min} 小時的部分會列入早退扣款。"
+    "FLEX_DEDUCTION_NOTE": "原因經管理員核准後不列入早退扣款；未核准的話，不足 {min} 小時的部分會列入早退扣款。",
+    "LOCATION_LIST_TITLE": "已設定的打卡地點",
+    "LOCATION_LIST_EMPTY": "還沒有設定任何打卡地點。",
+    "LOCATION_RADIUS_VALUE": "範圍 {radius} 公尺",
+    "LOCATION_VIEW_MAP": "在 Google 地圖查看",
+    "LOCATION_OVERLAP_WARNING": "⚠ 範圍與「{names}」重疊，在重疊區打卡會記成較近的那個地點",
+    "LOCATION_EDITING": "正在編輯「{name}」：修改名稱、在地圖上拖曳標記或調整範圍後，按「儲存修改」。",
+    "LOCATION_SAVE_EDIT": "儲存修改",
+    "LOCATION_CANCEL_EDIT": "取消編輯",
+    "LOCATION_DELETE_CONFIRM": "確定要刪除打卡地點「{name}」嗎？刪除後員工無法在這裡打卡。",
+    "LOCATION_UPDATE_SUCCESS": "✅ 打卡地點已更新",
+    "LOCATION_DELETE_SUCCESS": "✅ 打卡地點已刪除",
+    "ERR_LAST_LOCATION": "至少要保留一個打卡地點，否則所有人都無法打卡"
 }

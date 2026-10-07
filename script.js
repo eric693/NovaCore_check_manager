@@ -1770,46 +1770,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
     // 處理新增打卡地點
+    // 處理新增／編輯打卡地點（邏輯在 location-picker.js 的 saveLocationForm）
     document.getElementById('add-location-btn')?.addEventListener('click', async () => {
-        const name = document.getElementById('location-name').value;
-        const lat = document.getElementById('location-lat').value;
-        const lng = document.getElementById('location-lng').value;
-        const radius = document.getElementById('location-radius').value; // 新增
-        
-        if (!name || !lat || !lng) {
-            showNotification(t('NOTIF_FILL_ALL_AND_LOCATION'), "error");
-            return;
-        }
-        
-        try {
-            // 加入 radius 參數
-            const res = await callApifetch(`addLocation&name=${encodeURIComponent(name)}&lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}&radius=${radius}`);
-            if (res.ok) {
-                showNotification(t('NOTIF_LOCATION_ADDED'), "success");
-                
-                // 清空輸入欄位
-                document.getElementById('location-name').value = '';
-                document.getElementById('location-lat').value = '';
-                document.getElementById('location-lng').value = '';
-                document.getElementById('location-search').value = ''; // 新增
-                document.getElementById('location-radius').value = 200; // 新增
-                document.getElementById('radius-value').textContent = '200'; // 新增
-                
-                // 重設按鈕狀態
-                getLocationBtn.textContent = '取得當前位置';
-                getLocationBtn.disabled = false;
-                addLocationBtn.disabled = true;
-                
-                // 新增：清除地圖上的圓形
-                if (circle) {
-                    mapInstance.removeLayer(circle);
-                    circle = null;
-                }
-            } else {
-                showNotification(t('NOTIF_ADD_LOCATION_FAILED_MSG') + res.msg, "error");
-            }
-        } catch (err) {
-            console.error(err);
+        const ok = await saveLocationForm();
+        if (!ok) return;
+        // 重設「取得當前位置」按鈕，並清掉當前位置分頁地圖上的範圍圓形
+        getLocationBtn.textContent = t('GET_LOCATION_BTN');
+        getLocationBtn.disabled = false;
+        if (circle) {
+            mapInstance.removeLayer(circle);
+            circle = null;
         }
     });
     // UI切換邏輯
@@ -1877,6 +1847,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             initAdminAnalysis();
             loadAllUsers();
             refreshLocationPicker();
+            loadLocationList();
         } else if (tabId === 'overtime-view') {
             initOvertimeTab();
         } else if (tabId === 'leave-view') {

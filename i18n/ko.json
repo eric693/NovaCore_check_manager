@@ -979,5 +979,17 @@
   "DATA_ADMIN_ADMIN_ONLY": "이 페이지는 관리자 전용입니다.",
   "DATA_ADMIN_OPEN": "데이터 관리 열기",
   "DATA_ADMIN_OPEN_DESC": "출퇴근, 휴가, 초과근무 등의 데이터를 조회·추가·수정·삭제합니다.",
-  "FLEX_DEDUCTION_NOTE": "관리자가 사유를 승인하면 조기 퇴근 공제가 없습니다. 승인되지 않으면 {min}시간에 못 미친 시간이 조기 퇴근으로 공제됩니다."
+  "FLEX_DEDUCTION_NOTE": "관리자가 사유를 승인하면 조기 퇴근 공제가 없습니다. 승인되지 않으면 {min}시간에 못 미친 시간이 조기 퇴근으로 공제됩니다.",
+  "LOCATION_LIST_TITLE": "등록된 출퇴근 장소",
+  "LOCATION_LIST_EMPTY": "등록된 출퇴근 장소가 없습니다.",
+  "LOCATION_RADIUS_VALUE": "범위 {radius}m",
+  "LOCATION_VIEW_MAP": "Google 지도에서 보기",
+  "LOCATION_OVERLAP_WARNING": "⚠ 「{names}」와 범위가 겹칩니다. 겹친 곳에서 기록하면 더 가까운 장소로 기록됩니다",
+  "LOCATION_EDITING": "「{name}」 수정 중: 이름 변경, 지도에서 마커 이동 또는 범위 조정 후 「변경 저장」을 누르세요.",
+  "LOCATION_SAVE_EDIT": "변경 저장",
+  "LOCATION_CANCEL_EDIT": "수정 취소",
+  "LOCATION_DELETE_CONFIRM": "출퇴근 장소 「{name}」를 삭제할까요? 삭제하면 여기서 기록할 수 없습니다.",
+  "LOCATION_UPDATE_SUCCESS": "✅ 장소가 수정되었습니다",
+  "LOCATION_DELETE_SUCCESS": "✅ 장소가 삭제되었습니다",
+  "ERR_LAST_LOCATION": "출퇴근 장소는 최소 1개가 필요합니다"
 }

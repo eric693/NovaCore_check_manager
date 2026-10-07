@@ -524,10 +524,18 @@ function handleGetAttendanceDetails(params) {
 // ==================== 地點管理相關 ====================
 
 function handleAddLocation(params) {
+  // 原本沒有檢查身分，不用登入也能新增打卡地點；現在限管理員
+  const auth = sheetAdminAuth_(params.token);
+  if (auth.error) return auth.error;
   // radius 原本沒有傳下去，管理員設的範圍一律變成預設 200 公尺，
   // 相鄰地點的範圍因此重疊，打卡就可能被記到隔壁的地點
   const { name, lat, lng, radius } = params;
-  return addLocation(name, lat, lng, radius);
+  const res = addLocation(name, lat, lng, radius);
+  if (res.ok) {
+    sheetAdminAudit_(auth.user, SHEET_LOCATIONS, res.row, '新增打卡地點', null,
+      [res.input.name, res.input.lat, res.input.lng, res.input.radius]);
+  }
+  return { ok: res.ok, code: res.code };
 }
 
 function handleGetLocation() {

@@ -48,6 +48,10 @@ function doGet(e) {
         return respond1(handleAddLocation(e.parameter));
       case "getLocations":
         return respond1(handleGetLocation());
+      case "updateLocation":
+        return respond1(handleUpdateLocation(e.parameter));
+      case "deleteLocation":
+        return respond1(handleDeleteLocation(e.parameter));
       case "geocodeAddress":
         return respond1(handleGeocodeAddress(e.parameter));
 

@@ -1254,6 +1254,23 @@ function testGetApprovedOvertimeRecords() {
 
 // ==================== 地點管理 ====================
 /**
+ * 檢查並整理打卡地點的輸入
+ * @return {{ok: boolean, code?: string, name?: string, lat?: number, lng?: number, radius?: number}}
+ */
+function normalizeLocationInput_(name, lat, lng, radius) {
+  const n = String(name || '').trim();
+  const la = parseFloat(lat);
+  const ln = parseFloat(lng);
+  if (!n || isNaN(la) || isNaN(ln) || Math.abs(la) > 90 || Math.abs(ln) > 180) {
+    return { ok: false, code: "ERR_INVALID_INPUT" };
+  }
+  // 範圍限制在 30-2000 公尺
+  const r = parseInt(radius, 10);
+  const finalRadius = Math.max(30, Math.min(2000, isNaN(r) ? 200 : r));
+  return { ok: true, name: n, lat: la, lng: ln, radius: finalRadius };
+}
+
+/**
  * 新增打卡地點
  * @param {string} name - 地點名稱
  * @param {number} lat - 緯度
@@ -1261,23 +1278,20 @@ function testGetApprovedOvertimeRecords() {
  * @param {number} radius - 打卡範圍（公尺），預設 200，範圍 30-2000
  */
 function addLocation(name, lat, lng, radius) {
-  if (!name || !lat || !lng) {
-    return { ok: false, code: "ERR_INVALID_INPUT" };
-  }
-  
-  // 驗證 radius 參數，確保在合理範圍內
-  const validRadius = radius && !isNaN(radius) ? parseInt(radius) : 200;
-  const finalRadius = Math.max(30, Math.min(2000, validRadius)); // 限制在 30-2000 之間
-  
+  const input = normalizeLocationInput_(name, lat, lng, radius);
+  if (!input.ok) return input;
+
   const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_LOCATIONS);
-  sh.appendRow(["", name, lat, lng, finalRadius]);
-  
-  Logger.log(` 新增地點：${name}，範圍：${finalRadius}公尺`);
-  return { ok: true, code: "LOCATION_ADD_SUCCESS" };
+  const id = 'LOC' + Utilities.getUuid().substring(0, 8).toUpperCase();
+  sh.appendRow([id, input.name, input.lat, input.lng, input.radius]);
+
+  Logger.log(` 新增地點：${input.name}，範圍：${input.radius}公尺`);
+  return { ok: true, code: "LOCATION_ADD_SUCCESS", row: sh.getLastRow(), input: input };
 }
 
 /**
  * 取得所有打卡地點
+ * row 是試算表列號，編輯／刪除時用來找回同一列
  */
 function getLocation() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_LOCATIONS);
@@ -1287,18 +1301,98 @@ function getLocation() {
     return { ok: true, locations: [] };
   }
   
-  const headers = values.shift();
-  const locations = values
-    .filter(row => row[1])
-    .map(row => ({
-      id: row[headers.indexOf('ID')] || '',
-      name: row[headers.indexOf('地點名稱')] || '',
-      lat: row[headers.indexOf('GPS(緯度)')] || 0,
-      lng: row[headers.indexOf('GPS(經度)')] || 0,
-      scope: row[headers.indexOf('容許誤差(公尺)')] || 100
-    }));
+  const headers = values[0];
+  const col = (name, fallback) => {
+    const i = headers.indexOf(name);
+    return i >= 0 ? i : fallback;
+  };
+  const ID = col('ID', 0), NAME = col('地點名稱', 1), LAT = col('GPS(緯度)', 2),
+        LNG = col('GPS(經度)', 3), RADIUS = col('容許誤差(公尺)', 4);
+
+  const locations = [];
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    if (!row[NAME]) continue;
+    const radius = Number(row[RADIUS]) || 100;
+    locations.push({
+      row: i + 1,
+      id: row[ID] || '',
+      name: row[NAME] || '',
+      lat: row[LAT] || 0,
+      lng: row[LNG] || 0,
+      radius: radius,
+      scope: radius
+    });
+  }
   
   return { ok: true, locations: locations };
+}
+
+/**
+ * 找到要編輯／刪除的那一列，並確認它還是管理員畫面上看到的那個地點
+ * （中間有人刪掉上面的列，列號會位移；這時拒絕，免得改到別的地點）
+ */
+function findLocationRow_(sheet, params) {
+  const rowNumber = parseInt(params.row, 10);
+  if (!(rowNumber >= 2 && rowNumber <= sheet.getLastRow())) return { error: { ok: false, code: 'ERR_ROW_CHANGED' } };
+  const current = sheet.getRange(rowNumber, 1, 1, 5).getValues()[0];
+  const same = String(current[1]).trim() === String(params.origName || '').trim() &&
+               Number(current[2]) === Number(params.origLat) &&
+               Number(current[3]) === Number(params.origLng);
+  if (!same) return { error: { ok: false, code: 'ERR_ROW_CHANGED' } };
+  return { rowNumber: rowNumber, current: current };
+}
+
+/**
+ * 編輯打卡地點（名稱、座標、範圍）
+ * params: token, row, name, lat, lng, radius, origName, origLat, origLng
+ */
+function handleUpdateLocation(params) {
+  const auth = sheetAdminAuth_(params.token);
+  if (auth.error) return auth.error;
+  const input = normalizeLocationInput_(params.name, params.lat, params.lng, params.radius);
+  if (!input.ok) return input;
+
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return { ok: false, code: 'ERR_BUSY' };
+  try {
+    const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_LOCATIONS);
+    const found = findLocationRow_(sheet, params);
+    if (found.error) return found.error;
+
+    sheet.getRange(found.rowNumber, 2, 1, 4).setValues([[input.name, input.lat, input.lng, input.radius]]);
+    sheetAdminAudit_(auth.user, SHEET_LOCATIONS, found.rowNumber, '編輯打卡地點',
+      found.current.slice(1, 5), [input.name, input.lat, input.lng, input.radius]);
+    return { ok: true, code: 'LOCATION_UPDATE_SUCCESS' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * 刪除打卡地點（params: token, row, origName, origLat, origLng）
+ * 不能刪掉最後一個地點：沒有任何地點時所有人都無法打卡
+ */
+function handleDeleteLocation(params) {
+  const auth = sheetAdminAuth_(params.token);
+  if (auth.error) return auth.error;
+
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return { ok: false, code: 'ERR_BUSY' };
+  try {
+    const sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_LOCATIONS);
+    const found = findLocationRow_(sheet, params);
+    if (found.error) return found.error;
+
+    const remaining = getLocation().locations.length;
+    if (remaining <= 1) return { ok: false, code: 'ERR_LAST_LOCATION' };
+
+    sheet.deleteRow(found.rowNumber);
+    sheetAdminAudit_(auth.user, SHEET_LOCATIONS, found.rowNumber, '刪除打卡地點', found.current.slice(1, 5), null);
+    return { ok: true, code: 'LOCATION_DELETE_SUCCESS' };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ==================== 審核功能 ====================

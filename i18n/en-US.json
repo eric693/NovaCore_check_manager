@@ -1001,5 +1001,17 @@
   "DATA_ADMIN_ADMIN_ONLY": "This page is for admins only.",
   "DATA_ADMIN_OPEN": "Open data management",
   "DATA_ADMIN_OPEN_DESC": "View, add, edit and delete punch, leave, overtime and other sheet data.",
-  "FLEX_DEDUCTION_NOTE": "Once an admin approves the reason, no early-leave deduction applies. If it is not approved, the time short of {min} hours is deducted as early leave."
+  "FLEX_DEDUCTION_NOTE": "Once an admin approves the reason, no early-leave deduction applies. If it is not approved, the time short of {min} hours is deducted as early leave.",
+  "LOCATION_LIST_TITLE": "Punch locations",
+  "LOCATION_LIST_EMPTY": "No punch locations yet.",
+  "LOCATION_RADIUS_VALUE": "Radius {radius} m",
+  "LOCATION_VIEW_MAP": "View on Google Maps",
+  "LOCATION_OVERLAP_WARNING": "⚠ Overlaps with \"{names}\"; punches in the overlap are recorded as the nearer location",
+  "LOCATION_EDITING": "Editing \"{name}\": change the name, drag the marker or adjust the radius, then press \"Save changes\".",
+  "LOCATION_SAVE_EDIT": "Save changes",
+  "LOCATION_CANCEL_EDIT": "Cancel editing",
+  "LOCATION_DELETE_CONFIRM": "Delete punch location \"{name}\"? Employees will no longer be able to punch here.",
+  "LOCATION_UPDATE_SUCCESS": "✅ Location updated",
+  "LOCATION_DELETE_SUCCESS": "✅ Location deleted",
+  "ERR_LAST_LOCATION": "Keep at least one punch location, otherwise nobody can punch"
 }

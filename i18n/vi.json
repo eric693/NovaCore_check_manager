@@ -1035,5 +1035,17 @@
   "DATA_ADMIN_ADMIN_ONLY": "Trang này chỉ dành cho quản lý.",
   "DATA_ADMIN_OPEN": "Mở quản lý dữ liệu",
   "DATA_ADMIN_OPEN_DESC": "Xem, thêm, sửa, xóa dữ liệu chấm công, nghỉ phép, tăng ca...",
-  "FLEX_DEDUCTION_NOTE": "Khi quản lý duyệt lý do sẽ không bị trừ về sớm. Nếu không được duyệt, phần thiếu so với {min} giờ sẽ bị trừ như về sớm."
+  "FLEX_DEDUCTION_NOTE": "Khi quản lý duyệt lý do sẽ không bị trừ về sớm. Nếu không được duyệt, phần thiếu so với {min} giờ sẽ bị trừ như về sớm.",
+  "LOCATION_LIST_TITLE": "Địa điểm chấm công",
+  "LOCATION_LIST_EMPTY": "Chưa có địa điểm chấm công nào.",
+  "LOCATION_RADIUS_VALUE": "Bán kính {radius} m",
+  "LOCATION_VIEW_MAP": "Xem trên Google Maps",
+  "LOCATION_OVERLAP_WARNING": "⚠ Trùng phạm vi với \"{names}\"; chấm công ở vùng trùng sẽ ghi địa điểm gần hơn",
+  "LOCATION_EDITING": "Đang sửa \"{name}\": đổi tên, kéo điểm đánh dấu hoặc chỉnh bán kính rồi bấm \"Lưu thay đổi\".",
+  "LOCATION_SAVE_EDIT": "Lưu thay đổi",
+  "LOCATION_CANCEL_EDIT": "Hủy sửa",
+  "LOCATION_DELETE_CONFIRM": "Xóa địa điểm \"{name}\"? Nhân viên sẽ không thể chấm công tại đây.",
+  "LOCATION_UPDATE_SUCCESS": "✅ Đã cập nhật địa điểm",
+  "LOCATION_DELETE_SUCCESS": "✅ Đã xóa địa điểm",
+  "ERR_LAST_LOCATION": "Phải giữ ít nhất một địa điểm, nếu không sẽ không ai chấm công được"
 }

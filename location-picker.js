@@ -307,3 +307,202 @@ document.addEventListener('DOMContentLoaded', () => {
     latInput.addEventListener('change', sync);
     lngInput.addEventListener('change', sync);
 });
+
+// ==================== 打卡地點列表：編輯、刪除 ====================
+// 「編輯」會把地點帶回上面的新增表單（含可拖曳的選取器地圖），改完按同一顆按鈕儲存。
+
+let locationList = [];
+let editingLocation = null;   // 編輯中的地點（null = 新增模式）
+let _locationListLoading = null;
+
+function distanceMeters(lat1, lng1, lat2, lng2) {
+    const toRad = d => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function loadLocationList() {
+    if (!document.getElementById('location-list')) return Promise.resolve();
+    if (_locationListLoading) return _locationListLoading;
+    _locationListLoading = _doLoadLocationList().finally(() => { _locationListLoading = null; });
+    return _locationListLoading;
+}
+
+async function _doLoadLocationList() {
+    const status = document.getElementById('location-list-status');
+    status.textContent = t('LOADING');
+    try {
+        const res = await callApifetch('getLocations', 'location-list-none');
+        locationList = res.ok ? (res.locations || []) : [];
+        renderLocationList();
+    } catch (err) {
+        console.error('載入打卡地點失敗:', err);
+        status.textContent = t('NOTIF_SUBMIT_FAILED');
+    }
+}
+
+function renderLocationList() {
+    const list = document.getElementById('location-list');
+    const status = document.getElementById('location-list-status');
+    list.innerHTML = '';
+    status.textContent = locationList.length ? '' : t('LOCATION_LIST_EMPTY');
+
+    locationList.forEach(loc => {
+        const lat = Number(loc.lat), lng = Number(loc.lng), radius = Number(loc.radius || loc.scope) || 0;
+        // 範圍互相重疊的地點容易把打卡記成隔壁那個，列出來提醒管理員
+        const overlaps = locationList
+            .filter(o => o !== loc && distanceMeters(lat, lng, Number(o.lat), Number(o.lng)) < radius + (Number(o.radius || o.scope) || 0))
+            .map(o => o.name);
+
+        const li = document.createElement('li');
+        li.className = 'p-4 bg-gray-50 dark:bg-gray-700 rounded-lg' +
+            (editingLocation && editingLocation.row === loc.row ? ' ring-2 ring-amber-400' : '');
+        li.innerHTML = `
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="font-semibold text-gray-800 dark:text-white break-words">${escapeHtml(loc.name)}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        ${lat.toFixed(6)}, ${lng.toFixed(6)}
+                        ・${escapeHtml(t('LOCATION_RADIUS_VALUE', { radius }))}
+                        ・<a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener"
+                             class="text-indigo-600 dark:text-indigo-400 underline">${escapeHtml(t('LOCATION_VIEW_MAP'))}</a>
+                    </p>
+                    ${overlaps.length ? `<p class="text-xs text-amber-700 dark:text-amber-400 mt-1">${escapeHtml(t('LOCATION_OVERLAP_WARNING', { names: overlaps.join('、') }))}</p>` : ''}
+                </div>
+                <div class="flex gap-2 shrink-0">
+                    <button data-act="edit" class="px-3 py-1 rounded-md text-sm font-bold btn-secondary">${escapeHtml(t('SHEET_ADMIN_EDIT'))}</button>
+                    <button data-act="delete" class="px-3 py-1 rounded-md text-sm font-bold btn-warning">${escapeHtml(t('SHEET_ADMIN_DELETE'))}</button>
+                </div>
+            </div>
+        `;
+        li.querySelector('[data-act="edit"]').addEventListener('click', () => startEditLocation(loc));
+        li.querySelector('[data-act="delete"]').addEventListener('click', (e) => deleteLocation(loc, e.currentTarget));
+        list.appendChild(li);
+    });
+}
+
+/** 把地點帶進表單，進入編輯模式 */
+function startEditLocation(loc) {
+    editingLocation = loc;
+    const radius = Number(loc.radius || loc.scope) || 200;
+    document.getElementById('location-name').value = loc.name;
+    document.getElementById('location-search').value = '';
+    const slider = document.getElementById('location-radius');
+    slider.value = radius;
+    document.getElementById('radius-value').textContent = slider.value;
+    setPickerLocation(Number(loc.lat), Number(loc.lng));
+
+    const banner = document.getElementById('location-editing-banner');
+    banner.textContent = t('LOCATION_EDITING', { name: loc.name });
+    banner.style.display = 'block';
+    const addBtn = document.getElementById('add-location-btn');
+    addBtn.textContent = t('LOCATION_SAVE_EDIT');
+    addBtn.disabled = false;
+    document.getElementById('cancel-edit-location-btn').style.display = 'block';
+
+    renderLocationList();
+    document.getElementById('location-admin-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/** 回到新增模式，清空表單 */
+function resetLocationForm() {
+    editingLocation = null;
+    ['location-name', 'location-lat', 'location-lng', 'location-search'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    const slider = document.getElementById('location-radius');
+    if (slider) slider.value = 200;
+    const value = document.getElementById('radius-value');
+    if (value) value.textContent = '200';
+    const banner = document.getElementById('location-editing-banner');
+    if (banner) banner.style.display = 'none';
+    const addBtn = document.getElementById('add-location-btn');
+    if (addBtn) {
+        addBtn.textContent = t('ADD_LOCATION_BTN');
+        addBtn.disabled = true;
+    }
+    const cancel = document.getElementById('cancel-edit-location-btn');
+    if (cancel) cancel.style.display = 'none';
+    renderLocationList();
+}
+
+/**
+ * 新增或儲存編輯（新增地點按鈕呼叫）
+ * @returns {Promise<boolean>} 是否成功
+ */
+async function saveLocationForm() {
+    const name = document.getElementById('location-name').value.trim();
+    const lat = document.getElementById('location-lat').value;
+    const lng = document.getElementById('location-lng').value;
+    const radius = document.getElementById('location-radius').value;
+
+    if (!name || !lat || !lng) {
+        showNotification(t('NOTIF_FILL_ALL_AND_LOCATION'), 'error');
+        return false;
+    }
+
+    const btn = document.getElementById('add-location-btn');
+    generalButtonState(btn, 'processing', t('LOADING'));
+    try {
+        const params = new URLSearchParams({ name, lat, lng, radius });
+        let res;
+        if (editingLocation) {
+            params.set('row', editingLocation.row);
+            params.set('origName', editingLocation.name);
+            params.set('origLat', editingLocation.lat);
+            params.set('origLng', editingLocation.lng);
+            res = await callApifetch(`updateLocation&${params.toString()}`);
+        } else {
+            res = await callApifetch(`addLocation&${params.toString()}`);
+        }
+
+        if (res.ok) {
+            showNotification(t(editingLocation ? 'LOCATION_UPDATE_SUCCESS' : 'NOTIF_LOCATION_ADDED'), 'success');
+            generalButtonState(btn, 'idle');
+            resetLocationForm();
+            loadLocationList();
+            return true;
+        }
+        showNotification(t(res.code || 'UNKNOWN_ERROR'), 'error');
+        if (res.code === 'ERR_ROW_CHANGED') {
+            generalButtonState(btn, 'idle');
+            resetLocationForm();
+            loadLocationList();
+        }
+        return false;
+    } catch (err) {
+        console.error('儲存打卡地點失敗:', err);
+        showNotification(t('NOTIF_SUBMIT_FAILED'), 'error');
+        return false;
+    } finally {
+        if (btn.disabled && btn.dataset.originalText) generalButtonState(btn, 'idle');
+    }
+}
+
+async function deleteLocation(loc, button) {
+    if (!confirm(t('LOCATION_DELETE_CONFIRM', { name: loc.name }))) return;
+    generalButtonState(button, 'processing', '…');
+    try {
+        const params = new URLSearchParams({ row: loc.row, origName: loc.name, origLat: loc.lat, origLng: loc.lng });
+        const res = await callApifetch(`deleteLocation&${params.toString()}`);
+        showNotification(t(res.code || 'UNKNOWN_ERROR'), res.ok ? 'success' : 'error');
+        if (res.ok || res.code === 'ERR_ROW_CHANGED') {
+            // 刪除後下面的列號都會變，編輯中的地點列號可能已經不對，所以退出編輯模式再重新載入
+            if (editingLocation) resetLocationForm();
+            loadLocationList();
+        }
+    } catch (err) {
+        console.error('刪除打卡地點失敗:', err);
+        showNotification(t('NOTIF_SUBMIT_FAILED'), 'error');
+    } finally {
+        if (button.isConnected) generalButtonState(button, 'idle');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('cancel-edit-location-btn')?.addEventListener('click', resetLocationForm);
+    document.getElementById('refresh-location-list-btn')?.addEventListener('click', loadLocationList);
+});
