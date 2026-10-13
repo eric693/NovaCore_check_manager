@@ -1050,5 +1050,19 @@
     "LOCATION_DELETE_CONFIRM": "ลบสถานที่ลงเวลา \"{name}\" หรือไม่? พนักงานจะลงเวลาที่นี่ไม่ได้อีก",
     "LOCATION_UPDATE_SUCCESS": "✅ อัปเดตสถานที่แล้ว",
     "LOCATION_DELETE_SUCCESS": "✅ ลบสถานที่แล้ว",
-    "ERR_LAST_LOCATION": "ต้องมีสถานที่ลงเวลาอย่างน้อยหนึ่งแห่ง"
+    "ERR_LAST_LOCATION": "ต้องมีสถานที่ลงเวลาอย่างน้อยหนึ่งแห่ง",
+    "LEAVE_AUDIT_TITLE": "ตรวจสอบวันลาคงเหลือ",
+    "LEAVE_AUDIT_DESC": "คำนวณยอดคงเหลือที่ควรเป็นจากชั่วโมงที่อนุมัติในบันทึกการลา (สิทธิ์ตั้งต้น − ชั่วโมงที่อนุมัติ) และแสดงรายการที่ไม่ตรง ไม่รวมพักร้อนและวันหยุดชดเชย",
+    "LEAVE_AUDIT_RUN": "ตรวจสอบวันลาคงเหลือ",
+    "LEAVE_AUDIT_OK": "✅ วันลาคงเหลือทั้งหมดตรงกับบันทึกการลา",
+    "LEAVE_AUDIT_FOUND": "พบ {n} รายการไม่ตรง",
+    "LEAVE_AUDIT_FIX": "แก้ไข",
+    "LEAVE_AUDIT_CONFIRM": "เปลี่ยน{leave}ของ {name} จาก {from} เป็น {to} ชั่วโมง?",
+    "LEAVE_AUDIT_COL_TYPE": "ประเภทการลา",
+    "LEAVE_AUDIT_COL_CURRENT": "คงเหลือปัจจุบัน",
+    "LEAVE_AUDIT_COL_ENTITLEMENT": "สิทธิ์ตั้งต้น",
+    "LEAVE_AUDIT_COL_USED": "ชั่วโมงที่อนุมัติ",
+    "LEAVE_AUDIT_COL_EXPECTED": "ที่ควรเป็น",
+    "LEAVE_BALANCE_FIXED": "✅ แก้ไขวันลาคงเหลือแล้ว",
+    "ERR_DEDUCT_FAILED": "หักวันลาคงเหลือไม่สำเร็จ"
 }

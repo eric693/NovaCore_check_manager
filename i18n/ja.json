@@ -991,5 +991,19 @@
   "LOCATION_DELETE_CONFIRM": "打刻場所「{name}」を削除しますか？削除後はここで打刻できなくなります。",
   "LOCATION_UPDATE_SUCCESS": "✅ 打刻場所を更新しました",
   "LOCATION_DELETE_SUCCESS": "✅ 打刻場所を削除しました",
-  "ERR_LAST_LOCATION": "打刻場所は最低1つ必要です。ないと誰も打刻できません"
+  "ERR_LAST_LOCATION": "打刻場所は最低1つ必要です。ないと誰も打刻できません",
+  "LEAVE_AUDIT_TITLE": "休暇残数チェック",
+  "LEAVE_AUDIT_DESC": "休暇記録の承認済み時間から各人のあるべき残数（初期付与 − 承認済み時間）を計算し、現在の残数と合わないものを表示します。年次休暇と代休は対象外です。",
+  "LEAVE_AUDIT_RUN": "休暇残数をチェック",
+  "LEAVE_AUDIT_OK": "✅ すべての休暇残数が休暇記録と一致しています",
+  "LEAVE_AUDIT_FOUND": "{n} 件の不一致",
+  "LEAVE_AUDIT_FIX": "修正",
+  "LEAVE_AUDIT_CONFIRM": "「{name}」の{leave}を {from} から {to} 時間に変更しますか？",
+  "LEAVE_AUDIT_COL_TYPE": "休暇種別",
+  "LEAVE_AUDIT_COL_CURRENT": "現在の残数",
+  "LEAVE_AUDIT_COL_ENTITLEMENT": "初期付与",
+  "LEAVE_AUDIT_COL_USED": "承認済み時間",
+  "LEAVE_AUDIT_COL_EXPECTED": "あるべき残数",
+  "LEAVE_BALANCE_FIXED": "✅ 休暇残数を修正しました",
+  "ERR_DEDUCT_FAILED": "休暇残数の控除に失敗しました"
 }

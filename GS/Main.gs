@@ -138,6 +138,10 @@ function doGet(e) {
         return respond1(handleGetPendingLeaveRequests(e.parameter));
       case "reviewLeave":
         return respond1(handleReviewLeave(e.parameter));
+      case "leaveBalanceAudit":
+        return respond1(handleLeaveBalanceAudit(e.parameter));
+      case "fixLeaveBalance":
+        return respond1(handleFixLeaveBalance(e.parameter));
       case "initializeEmployeeLeave":
         return respond1(handleInitializeEmployeeLeave(e.parameter));
       

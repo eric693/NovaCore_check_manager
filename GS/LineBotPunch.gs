@@ -6691,55 +6691,18 @@ function handleLeaveReview(replyToken, userId, employeeName, text) {
     Logger.log(`   action: ${action}`);
     Logger.log(`   rowNumber: ${rowNumber}`);
     
-    // 取得請假記錄
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('請假紀錄');
-    
-    if (!sheet) {
-      replyMessage(replyToken, ' 請假記錄表不存在');
+    // 與網頁共用同一個審核流程：有鎖、只處理 PENDING、欄位對應正確
+    const result = applyLeaveReview_(rowNumber, action, employeeName, '');
+    if (!result.ok) {
+      replyMessage(replyToken, result.code === 'ERR_ALREADY_REVIEWED'
+        ? ' 此申請已被審核過'
+        : ` 審核失敗\n\n${result.msg || ''}`);
       return;
     }
-    
-    const record = sheet.getRange(rowNumber, 1, 1, 14).getValues()[0];
-    
-    // 檢查狀態
-    if (String(record[10]).trim() !== 'PENDING') {
-      replyMessage(replyToken, ' 此申請已被審核過');
-      return;
-    }
-    
-    const requestUserId = record[1];
-    const requestEmployeeName = record[2];
-    const leaveType = record[4];
-    const workHours = record[7];
-    
-    // 更新狀態
-    const status = (action === 'approve') ? 'APPROVED' : 'REJECTED';
-    
-    sheet.getRange(rowNumber, 11).setValue(status);
-    sheet.getRange(rowNumber, 12).setValue(employeeName);
-    sheet.getRange(rowNumber, 13).setValue(new Date());
-    
-    Logger.log(` 審核狀態已更新: ${status}`);
-    
-    // 如果核准，扣除假期餘額
-    if (action === 'approve') {
-      Logger.log(' 開始扣除假期餘額...');
-      
-      const deductResult = deductLeaveBalanceByUserId(requestUserId, leaveType, workHours);
-      
-      if (!deductResult.ok) {
-        Logger.log(' 扣除餘額失敗: ' + deductResult.msg);
-        
-        // 還原狀態
-        sheet.getRange(rowNumber, 11).setValue('PENDING');
-        
-        replyMessage(replyToken, ` 審核失敗\n\n${deductResult.msg}`);
-        return;
-      }
-      
-      Logger.log(' 假期餘額扣除成功');
-    }
-    
+    const requestEmployeeName = result.record[2];
+    const leaveType = result.record[4];
+    const workHours = result.record[7];
+
     // 發送審核結果
     const leaveTypeName = getLeaveTypeName(leaveType);
     const resultText = action === 'approve' ? ' 已核准' : ' 已拒絕';
@@ -6766,71 +6729,9 @@ function handleLeaveReview(replyToken, userId, employeeName, text) {
  *  扣除假期餘額（使用 userId）
  */
 function deductLeaveBalanceByUserId(userId, leaveType, hours) {
-  try {
-    Logger.log(' 扣除假期餘額');
-    Logger.log(`   員工ID: ${userId}`);
-    Logger.log(`   假別: ${leaveType}`);
-    Logger.log(`   小時數: ${hours}`);
-    
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('假期餘額');
-    
-    if (!sheet) {
-      return { ok: false, msg: '假期餘額表不存在' };
-    }
-    
-    const values = sheet.getDataRange().getValues();
-    
-    const leaveTypeColumnMap = {
-      'ANNUAL_LEAVE': 3,
-      'SICK_LEAVE': 4,
-      'PERSONAL_LEAVE': 5,
-      'BEREAVEMENT_LEAVE': 6,
-      'MARRIAGE_LEAVE': 7,
-      'MATERNITY_LEAVE': 8,
-      'PATERNITY_LEAVE': 9,
-      'HOSPITALIZATION_LEAVE': 10,
-      'MENSTRUAL_LEAVE': 11,
-      'FAMILY_CARE_LEAVE': 12,
-      'OFFICIAL_LEAVE': 13,
-      'WORK_INJURY_LEAVE': 14,
-      'NATURAL_DISASTER_LEAVE': 15,
-      'COMP_TIME_OFF': 16
-    };
-    
-    const columnIndex = leaveTypeColumnMap[leaveType];
-    
-    if (!columnIndex) {
-      return { ok: false, msg: '無效的假別' };
-    }
-    
-    for (let i = 1; i < values.length; i++) {
-      if (values[i][0] === userId) {
-        const currentBalance = values[i][columnIndex - 1];
-        
-        if (currentBalance < hours) {
-          return {
-            ok: false,
-            msg: `餘額不足（需要 ${hours} 小時，只剩 ${currentBalance} 小時）`
-          };
-        }
-        
-        const newBalance = currentBalance - hours;
-        
-        sheet.getRange(i + 1, columnIndex).setValue(newBalance);
-        sheet.getRange(i + 1, 18).setValue(new Date());
-        
-        Logger.log(' 餘額已更新');
-        
-        return { ok: true, remaining: newBalance };
-      }
-    }
-    
-    return { ok: false, msg: '找不到員工記錄' };
-    
-  } catch (error) {
-    Logger.log(' deductLeaveBalanceByUserId 錯誤: ' + error);
-    return { ok: false, msg: error.message };
-  }
+  // 舊版的欄位對應是在「到職日」欄加入前寫的，整排偏了一欄：
+  // 事假會扣到未住院病假、病假扣到特休假、更新時間寫進曠工欄。改用 LeaveManagement.gs 的正確版本。
+  return deductLeaveBalance(userId, leaveType, hours);
 }
 
 // ==================== 輔助函數 ====================

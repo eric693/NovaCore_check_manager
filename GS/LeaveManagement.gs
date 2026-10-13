@@ -728,13 +728,6 @@ function getPendingLeaveRequests(sessionToken) {
  */
 function reviewLeaveRequest(sessionToken, rowNumber, reviewAction, comment) {
   try {
-    Logger.log('═══════════════════════════════════════');
-    Logger.log(' 開始審核請假');
-    Logger.log('═══════════════════════════════════════');
-    Logger.log(`   行號: ${rowNumber}`);
-    Logger.log(`   動作: ${reviewAction}`);
-    Logger.log('');
-    
     const employee = checkSession_(sessionToken);
     
     if (!employee.ok || !employee.user) {
@@ -752,63 +745,8 @@ function reviewLeaveRequest(sessionToken, rowNumber, reviewAction, comment) {
       };
     }
     
-    const sheet = getLeaveRecordsSheet();
-    const record = sheet.getRange(rowNumber, 1, 1, 14).getValues()[0];
-    
-    const userId = record[1];
-    const employeeName = record[2];
-    const leaveType = record[4];
-    const workHours = record[7];
-    const days = record[8];
-    
-    Logger.log(' 請假資料:');
-    Logger.log(`   員工: ${employeeName} (${userId})`);
-    Logger.log(`   假別: ${leaveType}`);
-    Logger.log(`   時數: ${workHours} 小時`);
-    Logger.log(`   天數: ${days} 天`);
-    Logger.log('');
-    
-    const status = (reviewAction === 'approve') ? 'APPROVED' : 'REJECTED';
-    
-    sheet.getRange(rowNumber, 11).setValue(status);
-    sheet.getRange(rowNumber, 12).setValue(employee.user.name);
-    sheet.getRange(rowNumber, 13).setValue(new Date());
-    sheet.getRange(rowNumber, 14).setValue(comment || '');
-    
-    Logger.log(` 審核狀態已更新: ${status}`);
-    Logger.log('');
-    
-    if (reviewAction === 'approve') {
-      Logger.log(' 開始扣除假期餘額...');
-      
-      const deductResult = deductLeaveBalance(userId, leaveType, workHours);
-      
-      if (!deductResult.ok) {
-        Logger.log(' 扣除餘額失敗: ' + deductResult.msg);
-        
-        sheet.getRange(rowNumber, 11).setValue('PENDING');
-        
-        return {
-          ok: false,
-          code: "ERR_DEDUCT_FAILED",
-          msg: "扣除餘額失敗: " + deductResult.msg
-        };
-      }
-      
-      Logger.log(' 假期餘額扣除成功');
-      Logger.log(`   ${leaveType}: 扣除 ${workHours} 小時`);
-      Logger.log(`   剩餘: ${deductResult.remaining} 小時`);
-    }
-    
-    Logger.log('');
-    Logger.log('═══════════════════════════════════════');
-    Logger.log(' 審核完成');
-    Logger.log('═══════════════════════════════════════');
-    
-    return {
-      ok: true,
-      msg: "審核完成"
-    };
+    const result = applyLeaveReview_(rowNumber, reviewAction, employee.user.name, comment);
+    return result.ok ? { ok: true, msg: "審核完成" } : result;
     
   } catch (error) {
     Logger.log(' reviewLeaveRequest 錯誤: ' + error);
@@ -817,6 +755,49 @@ function reviewLeaveRequest(sessionToken, rowNumber, reviewAction, comment) {
       ok: false,
       msg: error.message
     };
+  }
+}
+
+/**
+ * 審核一筆請假（網頁與 LINE 共用）。
+ * 原本網頁版不檢查狀態：同一筆按兩次核准（連點、或逾時後重按）就會再扣一次餘額。
+ * 現在用鎖確保同時只有一個審核在跑，而且只處理「PENDING」的申請。
+ * @return {{ok: boolean, code?: string, msg?: string, record?: Array, remaining?: number}}
+ */
+function applyLeaveReview_(rowNumber, reviewAction, reviewerName, comment) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return { ok: false, code: 'ERR_BUSY', msg: '系統忙碌中，請稍後再試' };
+  try {
+    const sheet = getLeaveRecordsSheet();
+    if (!(rowNumber >= 2 && rowNumber <= sheet.getLastRow())) {
+      return { ok: false, code: 'ERR_NOT_FOUND', msg: '找不到這筆請假申請' };
+    }
+    const record = sheet.getRange(rowNumber, 1, 1, 14).getValues()[0];
+    if (String(record[10]).trim() !== 'PENDING') {
+      Logger.log(` 第 ${rowNumber} 列已經審核過（${record[10]}），不重複處理`);
+      return { ok: false, code: 'ERR_ALREADY_REVIEWED', msg: '此申請已被審核過' };
+    }
+
+    const userId = record[1];
+    const leaveType = record[4];
+    const workHours = Number(record[7]) || 0;
+    let remaining = null;
+
+    // 先扣餘額、成功了才改狀態，失敗就維持 PENDING
+    if (reviewAction === 'approve') {
+      const deductResult = deductLeaveBalance(userId, leaveType, workHours);
+      if (!deductResult.ok) {
+        return { ok: false, code: 'ERR_DEDUCT_FAILED', msg: '扣除餘額失敗: ' + deductResult.msg };
+      }
+      remaining = deductResult.remaining;
+    }
+
+    const status = (reviewAction === 'approve') ? 'APPROVED' : 'REJECTED';
+    sheet.getRange(rowNumber, 11, 1, 4).setValues([[status, reviewerName, new Date(), comment || '']]);
+    Logger.log(` 第 ${rowNumber} 列審核為 ${status}（${leaveType} ${workHours} 小時，剩餘 ${remaining}）`);
+    return { ok: true, record: record, remaining: remaining };
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -1381,4 +1362,111 @@ function updateAllEmployeesAnnualLeave() {
 
   Logger.log(`\n 完成，共更新 ${updateCount} 筆`);
   return { ok: true, updateCount: updateCount };
+}
+// ==================== 假期餘額檢查與修正（管理員） ====================
+// 假期餘額是直接在表上加減的，沒有逐筆紀錄。重複核准（舊版沒擋）或 LINE 審核扣錯欄之後，
+// 只能從「請假紀錄」反推：應有餘額 = 預設額度 − 已核准時數。
+// 只檢查有固定預設額度的假別；特休（依年資）、加班補休（依加班累積）、預設 0 的假別不在此列。
+const LEAVE_BALANCE_AUDIT_COLUMNS = [
+  { col: 5,  type: 'SICK_LEAVE',            entitlement: 240 },
+  { col: 6,  type: 'PERSONAL_LEAVE',        entitlement: 112 },
+  { col: 7,  type: 'BEREAVEMENT_LEAVE',     entitlement: 40 },
+  { col: 8,  type: 'MARRIAGE_LEAVE',        entitlement: 64 },
+  { col: 9,  type: 'MATERNITY_LEAVE',       entitlement: 448 },
+  { col: 10, type: 'PATERNITY_LEAVE',       entitlement: 56 },
+  { col: 11, type: 'HOSPITALIZATION_LEAVE', entitlement: 240 },
+  { col: 12, type: 'MENSTRUAL_LEAVE',       entitlement: 96 },
+  { col: 13, type: 'FAMILY_CARE_LEAVE',     entitlement: 56 }
+];
+// 舊版 LINE 審核會把更新時間寫進「曠工」欄（R），這裡有日期就是被寫壞的
+const LEAVE_BALANCE_ABSENCE_COL = 18;
+
+/**
+ * 列出餘額與請假紀錄對不上的格子
+ */
+function handleLeaveBalanceAudit(params) {
+  const auth = sheetAdminAuth_(params.token);
+  if (auth.error) return auth.error;
+
+  const balanceSheet = getLeaveBalanceSheet();
+  const balances = balanceSheet.getDataRange().getValues();
+  const headers = balances[0] || [];
+
+  // 每人每種假別的已核准時數
+  const approved = {};
+  const records = getLeaveRecordsSheet().getDataRange().getValues();
+  for (let i = 1; i < records.length; i++) {
+    const r = records[i];
+    if (String(r[10]).trim() !== 'APPROVED') continue;
+    const key = String(r[1]).trim() + '|' + String(r[4]).trim();
+    approved[key] = (approved[key] || 0) + (Number(r[7]) || 0);
+  }
+
+  const issues = [];
+  for (let i = 1; i < balances.length; i++) {
+    const row = balances[i];
+    const userId = String(row[0] || '').trim();
+    if (!userId) continue;
+
+    LEAVE_BALANCE_AUDIT_COLUMNS.forEach(c => {
+      const current = row[c.col - 1];
+      const used = Math.round((approved[userId + '|' + c.type] || 0) * 100) / 100;
+      const expected = Math.max(0, Math.round((c.entitlement - used) * 100) / 100);
+      const isNumber = typeof current === 'number' || (current !== '' && !isNaN(Number(current)) && !(current instanceof Date));
+      if (isNumber && Math.abs(Number(current) - expected) < 0.01) return;
+      issues.push({
+        userId: userId, name: String(row[1] || ''), row: i + 1, col: c.col,
+        header: String(headers[c.col - 1] || c.type), leaveType: c.type,
+        current: leaveBalanceCellText_(current), entitlement: c.entitlement, used: used, expected: expected
+      });
+    });
+
+    const absence = row[LEAVE_BALANCE_ABSENCE_COL - 1];
+    if (absence instanceof Date) {
+      issues.push({
+        userId: userId, name: String(row[1] || ''), row: i + 1, col: LEAVE_BALANCE_ABSENCE_COL,
+        header: String(headers[LEAVE_BALANCE_ABSENCE_COL - 1] || '曠工'), leaveType: 'ABSENCE_WITHOUT_LEAVE',
+        current: leaveBalanceCellText_(absence), entitlement: 0, used: 0, expected: 0
+      });
+    }
+  }
+  return { ok: true, issues: issues };
+}
+
+function leaveBalanceCellText_(v) {
+  return v instanceof Date ? Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm') : String(v);
+}
+
+/**
+ * 把一格餘額改成指定的值（params: token, userId, col, current, value）
+ * current 是管理員畫面上看到的值；表上已經不是這個值就拒絕，避免蓋掉剛發生的扣除。
+ */
+function handleFixLeaveBalance(params) {
+  const auth = sheetAdminAuth_(params.token);
+  if (auth.error) return auth.error;
+
+  const col = parseInt(params.col, 10);
+  const value = Number(params.value);
+  const allowed = LEAVE_BALANCE_AUDIT_COLUMNS.some(c => c.col === col) || col === LEAVE_BALANCE_ABSENCE_COL;
+  if (!allowed || isNaN(value) || value < 0 || value > 10000) return { ok: false, code: 'ERR_INVALID_INPUT' };
+
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return { ok: false, code: 'ERR_BUSY' };
+  try {
+    const sheet = getLeaveBalanceSheet();
+    const values = sheet.getDataRange().getValues();
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][0]).trim() !== String(params.userId || '').trim()) continue;
+      const current = values[i][col - 1];
+      if (leaveBalanceCellText_(current) !== String(params.current)) return { ok: false, code: 'ERR_ROW_CHANGED' };
+      sheet.getRange(i + 1, col).setValue(value);
+      sheet.getRange(i + 1, 19).setValue(new Date());
+      sheetAdminAudit_(auth.user, sheet.getName(), i + 1, '修正假期餘額',
+        [{ col: col, value: leaveBalanceCellText_(current) }], [{ col: col, value: value }]);
+      return { ok: true, code: 'LEAVE_BALANCE_FIXED' };
+    }
+    return { ok: false, code: 'ERR_NOT_FOUND' };
+  } finally {
+    lock.releaseLock();
+  }
 }

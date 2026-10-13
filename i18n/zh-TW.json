@@ -1031,5 +1031,19 @@
     "LOCATION_DELETE_CONFIRM": "確定要刪除打卡地點「{name}」嗎？刪除後員工無法在這裡打卡。",
     "LOCATION_UPDATE_SUCCESS": "✅ 打卡地點已更新",
     "LOCATION_DELETE_SUCCESS": "✅ 打卡地點已刪除",
-    "ERR_LAST_LOCATION": "至少要保留一個打卡地點，否則所有人都無法打卡"
+    "ERR_LAST_LOCATION": "至少要保留一個打卡地點，否則所有人都無法打卡",
+    "LEAVE_AUDIT_TITLE": "假期餘額檢查",
+    "LEAVE_AUDIT_DESC": "依「請假紀錄」中已核准的時數，重新計算每個人應有的餘額（預設額度 − 已核准時數），列出與目前餘額不一致的項目。特休與加班補休不在此檢查範圍。",
+    "LEAVE_AUDIT_RUN": "檢查假期餘額",
+    "LEAVE_AUDIT_OK": "✅ 所有假期餘額都與請假紀錄一致",
+    "LEAVE_AUDIT_FOUND": "找到 {n} 項不一致",
+    "LEAVE_AUDIT_FIX": "修正",
+    "LEAVE_AUDIT_CONFIRM": "將「{name}」的{leave}從 {from} 改為 {to} 小時？",
+    "LEAVE_AUDIT_COL_TYPE": "假別",
+    "LEAVE_AUDIT_COL_CURRENT": "目前餘額",
+    "LEAVE_AUDIT_COL_ENTITLEMENT": "預設額度",
+    "LEAVE_AUDIT_COL_USED": "已核准時數",
+    "LEAVE_AUDIT_COL_EXPECTED": "應有餘額",
+    "LEAVE_BALANCE_FIXED": "✅ 假期餘額已修正",
+    "ERR_DEDUCT_FAILED": "扣除假期餘額失敗"
 }

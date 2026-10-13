@@ -14,7 +14,8 @@ const ATT = { TIME: 0, USER_ID: 1, DEPT: 2, NAME: 3, TYPE: 4, GPS: 5, LOCATION: 
 
 // 預設分頁對應的工作表；系統不同版本用過不同名稱，挑第一個存在且有資料的
 const DA_TAB_SHEETS = {
-    leaveBalance: ['員工假期額度', '假期餘額'],
+    // 系統實際讀寫的是「假期餘額」（LeaveManagement.gs getLeaveBalanceSheet），要排第一個
+    leaveBalance: ['假期餘額', '員工假期額度'],
     leave: ['請假紀錄', '請假申請'],
     overtime: ['加班申請', '加班紀錄']
 };
@@ -711,6 +712,85 @@ class SheetTable {
     }
 }
 
+// ==================== 假期餘額檢查 ====================
+// 應有餘額 = 預設額度 − 已核准請假時數；對不上的（例如同一筆被重複核准、舊版 LINE 審核扣錯欄）
+// 列出來讓管理員一鍵修正，或自己輸入正確的數字。
+
+function buildLeaveAuditCard(onFixed) {
+    const result = el('div');
+    const run = el('button', { class: 'btn btn-primary', text: tr('LEAVE_AUDIT_RUN', {}, '檢查假期餘額') });
+    const card = el('div', { class: 'card' }, [
+        el('h2', { text: tr('LEAVE_AUDIT_TITLE', {}, '假期餘額檢查') }),
+        el('p', { class: 'count', text: tr('LEAVE_AUDIT_DESC', {}, '依「請假紀錄」中已核准的時數，重新計算每個人應有的餘額（預設額度 − 已核准時數），列出與目前餘額不一致的項目。特休與加班補休不在此檢查範圍。') }),
+        el('div', { class: 'actions' }, run),
+        result
+    ]);
+
+    const audit = async () => {
+        busy(run, true);
+        result.innerHTML = '';
+        try {
+            const res = await daApi.get('leaveBalanceAudit');
+            if (!res.ok) { toast(tr(res.code || 'UNKNOWN_ERROR', {}, '檢查失敗'), 'error'); return; }
+            renderLeaveAudit(result, res.issues || [], async () => { await audit(); onFixed(); });
+        } catch (err) {
+            console.error(err);
+            toast(tr('NOTIF_SUBMIT_FAILED', {}, '連線失敗，請稍後再試'), 'error');
+        } finally {
+            busy(run, false);
+        }
+    };
+    run.addEventListener('click', audit);
+    return card;
+}
+
+function renderLeaveAudit(container, issues, afterFix) {
+    container.innerHTML = '';
+    if (!issues.length) {
+        container.append(el('p', { class: 'empty', text: tr('LEAVE_AUDIT_OK', {}, '✅ 所有假期餘額都與請假紀錄一致') }));
+        return;
+    }
+    container.append(el('p', { class: 'count', style: 'margin-top:16px', text: tr('LEAVE_AUDIT_FOUND', { n: issues.length }, '找到 {n} 項不一致') }));
+    const tbody = el('tbody');
+    issues.forEach(it => {
+        const input = el('input', { type: 'number', min: '0', step: '0.5', value: String(it.expected), style: 'width:90px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px' });
+        const fix = el('button', { class: 'btn btn-primary btn-sm', text: tr('LEAVE_AUDIT_FIX', {}, '修正') });
+        fix.addEventListener('click', async () => {
+            const value = input.value.trim();
+            if (value === '' || isNaN(Number(value))) return;
+            if (!confirm(tr('LEAVE_AUDIT_CONFIRM', { name: it.name, leave: it.header, from: it.current, to: value }, '將「{name}」的{leave}從 {from} 改為 {to} 小時？'))) return;
+            busy(fix, true);
+            try {
+                const res = await daApi.post('fixLeaveBalance', { userId: it.userId, col: it.col, current: it.current, value });
+                toast(tr(res.code || 'UNKNOWN_ERROR', {}, res.ok ? '已修正' : '修正失敗'), res.ok ? 'success' : 'error');
+                if (res.ok || res.code === 'ERR_ROW_CHANGED') await afterFix();
+            } catch (err) {
+                console.error(err);
+                toast(tr('NOTIF_SUBMIT_FAILED', {}, '送出失敗，請稍後再試'), 'error');
+            } finally {
+                if (fix.isConnected) busy(fix, false);
+            }
+        });
+        tbody.append(el('tr', {}, [
+            el('td', { class: 'nowrap', text: it.name || it.userId }),
+            el('td', { class: 'nowrap', text: it.header }),
+            el('td', { class: 'num', text: it.current }),
+            el('td', { class: 'num', text: String(it.entitlement) }),
+            el('td', { class: 'num', text: String(it.used) }),
+            el('td', { class: 'num', text: String(it.expected) }),
+            el('td', { class: 'row-actions' }, [input, ' ', fix])
+        ]));
+    });
+    container.append(el('div', { class: 'table-wrap' }, el('table', {}, [
+        el('thead', {}, el('tr', {}, [
+            tr('DATA_ADMIN_COL_EMPLOYEE', {}, '員工'), tr('LEAVE_AUDIT_COL_TYPE', {}, '假別'),
+            tr('LEAVE_AUDIT_COL_CURRENT', {}, '目前餘額'), tr('LEAVE_AUDIT_COL_ENTITLEMENT', {}, '預設額度'),
+            tr('LEAVE_AUDIT_COL_USED', {}, '已核准時數'), tr('LEAVE_AUDIT_COL_EXPECTED', {}, '應有餘額'), ''
+        ].map((h, i) => el('th', { class: i >= 2 && i <= 5 ? 'num' : '', text: h })))),
+        tbody
+    ])));
+}
+
 // ==================== 分頁切換與初始化 ====================
 
 const tables = {};
@@ -724,6 +804,7 @@ function activateTab(name) {
     if (!tables[name]) {
         const root = document.querySelector(`.tab-panel[data-panel="${name}"]`);
         tables[name] = new SheetTable(root, name === 'all' ? { picker: true } : { candidates: DA_TAB_SHEETS[name] });
+        if (name === 'leaveBalance') root.prepend(buildLeaveAuditCard(() => tables.leaveBalance.reload()));
     }
     tables[name].init();
 }

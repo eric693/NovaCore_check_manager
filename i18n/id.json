@@ -991,5 +991,19 @@
   "LOCATION_DELETE_CONFIRM": "Hapus lokasi absen \"{name}\"? Karyawan tidak bisa absen di sini lagi.",
   "LOCATION_UPDATE_SUCCESS": "✅ Lokasi diperbarui",
   "LOCATION_DELETE_SUCCESS": "✅ Lokasi dihapus",
-  "ERR_LAST_LOCATION": "Minimal harus ada satu lokasi absen"
+  "ERR_LAST_LOCATION": "Minimal harus ada satu lokasi absen",
+  "LEAVE_AUDIT_TITLE": "Cek sisa cuti",
+  "LEAVE_AUDIT_DESC": "Menghitung ulang sisa cuti seharusnya dari jam yang disetujui di catatan cuti (jatah − jam disetujui) dan menampilkan yang tidak cocok. Cuti tahunan dan cuti pengganti tidak diperiksa.",
+  "LEAVE_AUDIT_RUN": "Cek sisa cuti",
+  "LEAVE_AUDIT_OK": "✅ Semua sisa cuti sesuai dengan catatan cuti",
+  "LEAVE_AUDIT_FOUND": "{n} ketidakcocokan ditemukan",
+  "LEAVE_AUDIT_FIX": "Perbaiki",
+  "LEAVE_AUDIT_CONFIRM": "Ubah {leave} milik {name} dari {from} menjadi {to} jam?",
+  "LEAVE_AUDIT_COL_TYPE": "Jenis cuti",
+  "LEAVE_AUDIT_COL_CURRENT": "Saat ini",
+  "LEAVE_AUDIT_COL_ENTITLEMENT": "Jatah",
+  "LEAVE_AUDIT_COL_USED": "Jam disetujui",
+  "LEAVE_AUDIT_COL_EXPECTED": "Seharusnya",
+  "LEAVE_BALANCE_FIXED": "✅ Sisa cuti diperbaiki",
+  "ERR_DEDUCT_FAILED": "Gagal memotong sisa cuti"
 }

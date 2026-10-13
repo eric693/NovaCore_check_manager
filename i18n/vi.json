@@ -1047,5 +1047,19 @@
   "LOCATION_DELETE_CONFIRM": "Xóa địa điểm \"{name}\"? Nhân viên sẽ không thể chấm công tại đây.",
   "LOCATION_UPDATE_SUCCESS": "✅ Đã cập nhật địa điểm",
   "LOCATION_DELETE_SUCCESS": "✅ Đã xóa địa điểm",
-  "ERR_LAST_LOCATION": "Phải giữ ít nhất một địa điểm, nếu không sẽ không ai chấm công được"
+  "ERR_LAST_LOCATION": "Phải giữ ít nhất một địa điểm, nếu không sẽ không ai chấm công được",
+  "LEAVE_AUDIT_TITLE": "Kiểm tra số ngày phép",
+  "LEAVE_AUDIT_DESC": "Tính lại số dư đúng của từng người từ số giờ đã duyệt trong hồ sơ nghỉ phép (định mức − giờ đã duyệt) và liệt kê những mục không khớp. Không kiểm tra phép năm và nghỉ bù.",
+  "LEAVE_AUDIT_RUN": "Kiểm tra số dư phép",
+  "LEAVE_AUDIT_OK": "✅ Tất cả số dư phép khớp với hồ sơ nghỉ phép",
+  "LEAVE_AUDIT_FOUND": "Tìm thấy {n} mục không khớp",
+  "LEAVE_AUDIT_FIX": "Sửa",
+  "LEAVE_AUDIT_CONFIRM": "Đổi {leave} của {name} từ {from} thành {to} giờ?",
+  "LEAVE_AUDIT_COL_TYPE": "Loại phép",
+  "LEAVE_AUDIT_COL_CURRENT": "Hiện tại",
+  "LEAVE_AUDIT_COL_ENTITLEMENT": "Định mức",
+  "LEAVE_AUDIT_COL_USED": "Giờ đã duyệt",
+  "LEAVE_AUDIT_COL_EXPECTED": "Đúng ra",
+  "LEAVE_BALANCE_FIXED": "✅ Đã sửa số dư phép",
+  "ERR_DEDUCT_FAILED": "Trừ số dư phép thất bại"
 }

@@ -838,18 +838,23 @@ async function handleReviewLeave(button, action) {
             `&comment=${encodeURIComponent(comment || '')}`
         );
         
-        if (res.ok) {
-            showNotification(action === 'approve' ? '已核准' : '已拒絕', 'success');
+        if (res.ok || res.code === 'ERR_ALREADY_REVIEWED') {
+            showNotification(res.ok ? (action === 'approve' ? '已核准' : '已拒絕') : t('ERR_ALREADY_REVIEWED'),
+                res.ok ? 'success' : 'warning');
+            // 成功後不再把按鈕打開：原本在重新載入列表前按鈕就恢復可按，連點會再扣一次假期餘額
+            const item = button.closest('li');
+            if (item) item.querySelectorAll('button').forEach(b => { b.disabled = true; });
             await new Promise(resolve => setTimeout(resolve, 500));
             loadPendingLeaveRequests();
-        } else {
-            showNotification(t('NOTIF_REVIEW_FAILED'), 'error');
+            return;
         }
+        showNotification(res.msg || t('NOTIF_REVIEW_FAILED'), 'error');
     } catch (err) {
+        // 逾時的話後端可能其實已經審核完成，重新載入列表讓管理員看到最新狀態，而不是直接再按一次
         console.error('審核請假失敗:', err);
         showNotification(t('NOTIF_NETWORK_ERROR'), 'error');
-    } finally {
-        button.disabled = false;
-        button.textContent = action === 'approve' ? '核准' : '拒絕';
+        loadPendingLeaveRequests();
     }
+    button.disabled = false;
+    button.textContent = action === 'approve' ? '核准' : '拒絕';
 }

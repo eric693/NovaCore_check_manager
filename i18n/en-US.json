@@ -1013,5 +1013,19 @@
   "LOCATION_DELETE_CONFIRM": "Delete punch location \"{name}\"? Employees will no longer be able to punch here.",
   "LOCATION_UPDATE_SUCCESS": "✅ Location updated",
   "LOCATION_DELETE_SUCCESS": "✅ Location deleted",
-  "ERR_LAST_LOCATION": "Keep at least one punch location, otherwise nobody can punch"
+  "ERR_LAST_LOCATION": "Keep at least one punch location, otherwise nobody can punch",
+  "LEAVE_AUDIT_TITLE": "Leave balance check",
+  "LEAVE_AUDIT_DESC": "Recalculates each balance from approved hours in the leave records (default entitlement − approved hours) and lists the ones that differ. Annual leave and comp time are not checked.",
+  "LEAVE_AUDIT_RUN": "Check leave balances",
+  "LEAVE_AUDIT_OK": "✅ All leave balances match the leave records",
+  "LEAVE_AUDIT_FOUND": "{n} mismatches found",
+  "LEAVE_AUDIT_FIX": "Fix",
+  "LEAVE_AUDIT_CONFIRM": "Change {name}'s {leave} from {from} to {to} hours?",
+  "LEAVE_AUDIT_COL_TYPE": "Leave type",
+  "LEAVE_AUDIT_COL_CURRENT": "Current",
+  "LEAVE_AUDIT_COL_ENTITLEMENT": "Entitlement",
+  "LEAVE_AUDIT_COL_USED": "Approved hours",
+  "LEAVE_AUDIT_COL_EXPECTED": "Expected",
+  "LEAVE_BALANCE_FIXED": "✅ Leave balance fixed",
+  "ERR_DEDUCT_FAILED": "Failed to deduct leave balance"
 }

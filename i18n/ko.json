@@ -991,5 +991,19 @@
   "LOCATION_DELETE_CONFIRM": "출퇴근 장소 「{name}」를 삭제할까요? 삭제하면 여기서 기록할 수 없습니다.",
   "LOCATION_UPDATE_SUCCESS": "✅ 장소가 수정되었습니다",
   "LOCATION_DELETE_SUCCESS": "✅ 장소가 삭제되었습니다",
-  "ERR_LAST_LOCATION": "출퇴근 장소는 최소 1개가 필요합니다"
+  "ERR_LAST_LOCATION": "출퇴근 장소는 최소 1개가 필요합니다",
+  "LEAVE_AUDIT_TITLE": "휴가 잔여 점검",
+  "LEAVE_AUDIT_DESC": "휴가 기록의 승인된 시간으로 각자의 정상 잔여(기본 부여 − 승인 시간)를 다시 계산해 현재 잔여와 다른 항목을 보여줍니다. 연차와 보상휴가는 제외됩니다.",
+  "LEAVE_AUDIT_RUN": "휴가 잔여 점검",
+  "LEAVE_AUDIT_OK": "✅ 모든 휴가 잔여가 휴가 기록과 일치합니다",
+  "LEAVE_AUDIT_FOUND": "불일치 {n}건",
+  "LEAVE_AUDIT_FIX": "수정",
+  "LEAVE_AUDIT_CONFIRM": "「{name}」의 {leave}을(를) {from}에서 {to}시간으로 바꿀까요?",
+  "LEAVE_AUDIT_COL_TYPE": "휴가 종류",
+  "LEAVE_AUDIT_COL_CURRENT": "현재 잔여",
+  "LEAVE_AUDIT_COL_ENTITLEMENT": "기본 부여",
+  "LEAVE_AUDIT_COL_USED": "승인 시간",
+  "LEAVE_AUDIT_COL_EXPECTED": "정상 잔여",
+  "LEAVE_BALANCE_FIXED": "✅ 휴가 잔여가 수정되었습니다",
+  "ERR_DEDUCT_FAILED": "휴가 잔여 차감 실패"
 }
