@@ -435,3 +435,45 @@ function updateTripStatus_(id, decide, successCode) {
     lock.releaseLock();
   }
 }
+
+// ==================== 時薪員工：停班日／出差補計工時 ====================
+
+// 停班日、出差日一天以幾小時計
+const PAID_DAY_HOURS = 8;
+
+/**
+ * 時薪員工依打卡工時計薪，停班日或出差沒打卡就會變 0 小時。
+ * 這些日子以一天 8 小時計：當天已打卡的工時算進去，不足 8 小時的部分補足。
+ * - 只算工作日：出差期間遇到週末、國定假日不補（平常那幾天本來就不支薪）
+ * - 當天有已核准請假的不補（照請假規則處理）
+ * - 未來的日子不補（月中先算薪資時，還沒到的停班日不應該先發）
+ *
+ * @param {string} userId
+ * @param {string} yearMonth yyyy-MM
+ * @param {Object} workedByDate { 'yyyy-MM-dd': 當天已計入的工時 }
+ * @return {{hours: number, days: Array<{date: string, kind: string, worked: number, credited: number}>}}
+ */
+function paidAbsenceCredit_(userId, yearMonth, workedByDate) {
+  const today = wcDateKey_(new Date());
+  const trips = getApprovedTripMap_(userId);
+  const closures = getClosureMap_();
+  const dates = Object.keys(trips).concat(Object.keys(closures))
+    .filter((d, i, arr) => d.substring(0, 7) === yearMonth && arr.indexOf(d) === i && d <= today)
+    .sort();
+  if (!dates.length) return { hours: 0, days: [] };
+
+  const leave = approvedLeaveDates_(userId, dates);
+  const result = { hours: 0, days: [] };
+  dates.forEach(d => {
+    const weekday = new Date(d + 'T12:00:00').getDay();
+    if (weekday === 0 || weekday === 6) return;
+    if (typeof isNationalHoliday === 'function' && isNationalHoliday(d)) return;
+    if (leave[d]) return;
+    const worked = Number(workedByDate[d]) || 0;
+    const credited = Math.max(0, PAID_DAY_HOURS - worked);
+    if (!credited) return;
+    result.hours += credited;
+    result.days.push({ date: d, kind: trips[d] ? '出差' : '停班', worked: worked, credited: credited });
+  });
+  return result;
+}

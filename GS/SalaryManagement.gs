@@ -1316,6 +1316,13 @@ function calculateHourlySalary(employeeId, yearMonth) {
       }
     });
 
+    // 3.5 停班日（颱風假）與出差照常發薪：沒打卡的日子以一天 8 小時補計（見 WorkCalendar.gs）
+    const workedByDate = {};
+    attendanceRecords.forEach(record => { workedByDate[record.date] = record.workHours || 0; });
+    const paidAbsence = paidAbsenceCredit_(employeeId, yearMonth, workedByDate);
+    paidAbsence.days.forEach(d => Logger.log(`   ${d.date}: ${d.kind}，已打卡 ${d.worked}h，補計 ${d.credited}h`));
+    totalWorkHours += paidAbsence.hours;
+
     Logger.log(`⏱ 總工作時數: ${totalWorkHours.toFixed(1)}h`);
     
     // 4. 計算基本薪資（工作時數 × 時薪）
@@ -1683,6 +1690,7 @@ function calculateHourlySalary(employeeId, yearMonth) {
       bankAccount: config['銀行帳號'] || "",
       status: "已計算",
       note: `工作${totalWorkHours.toFixed(1)}h，加班${totalOvertimeHours.toFixed(1)}h` + 
+        (paidAbsence.hours > 0 ? `（含停班／出差補計${paidAbsence.hours}h）` : '') +
         (sickLeaveHours > 0 ? `，病假${sickLeaveHours}h(半薪)` : '') +      // ⭐ 改為時數
         (personalLeaveHours > 0 ? `，事假${personalLeaveHours}h` : '') +    // ⭐ 改為時數
         tripNoteForMonth_(employeeId, yearMonth)
