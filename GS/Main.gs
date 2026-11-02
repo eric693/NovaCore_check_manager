@@ -65,6 +65,24 @@ function doGet(e) {
       case "reviewFlexCheckout":
         return respond1(handleReviewFlexCheckout(e.parameter));
 
+      // ==================== 停班日與出差 ====================
+      case "getClosures":
+        return respond1(handleGetClosures(e.parameter));
+      case "addClosure":
+        return respond1(handleAddClosure(e.parameter));
+      case "deleteClosure":
+        return respond1(handleDeleteClosure(e.parameter));
+      case "submitTrip":
+        return respond1(handleSubmitTrip(e.parameter));
+      case "getMyTrips":
+        return respond1(handleGetMyTrips(e.parameter));
+      case "cancelTrip":
+        return respond1(handleCancelTrip(e.parameter));
+      case "getPendingTrips":
+        return respond1(handleGetPendingTrips(e.parameter));
+      case "reviewTrip":
+        return respond1(handleReviewTrip(e.parameter));
+
       // ==================== 資料表管理（管理員） ====================
       case "sheetAdminList":
         return respond1(handleSheetAdminList(e.parameter));

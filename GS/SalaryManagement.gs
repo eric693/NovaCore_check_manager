@@ -69,7 +69,9 @@ function handleGetHolidays() {
   return {
     ok: true,
     year: 2026,
-    holidays: TAIWAN_HOLIDAYS_2026
+    holidays: TAIWAN_HOLIDAYS_2026,
+    // 公司停班日（颱風假等）{ 'yyyy-MM-dd': '全天' | '下午' }，前端請假時數預覽用
+    closures: (typeof getClosureMap_ === 'function') ? getClosureMap_() : {}
   };
 }
 
@@ -1682,7 +1684,8 @@ function calculateHourlySalary(employeeId, yearMonth) {
       status: "已計算",
       note: `工作${totalWorkHours.toFixed(1)}h，加班${totalOvertimeHours.toFixed(1)}h` + 
         (sickLeaveHours > 0 ? `，病假${sickLeaveHours}h(半薪)` : '') +      // ⭐ 改為時數
-        (personalLeaveHours > 0 ? `，事假${personalLeaveHours}h` : '')      // ⭐ 改為時數
+        (personalLeaveHours > 0 ? `，事假${personalLeaveHours}h` : '') +    // ⭐ 改為時數
+        tripNoteForMonth_(employeeId, yearMonth)
     };
     
     Logger.log(' 時薪計算完成');
@@ -2412,7 +2415,8 @@ function calculateMonthlySalaryInternal(employeeId, yearMonth) {
         (holidayCompHours > 0 ? `，國定假日補休${holidayCompHours.toFixed(1)}h` : '') +
         (sickLeaveHours > 0 ? `，病假${sickLeaveHours}h(半薪)` : '') +
         (personalLeaveHours > 0 ? `，事假${personalLeaveHours}h` : '') +
-        (earlyLeaveDeduction > 0 ? `，早退扣款$${earlyLeaveDeduction}` : '')
+        (earlyLeaveDeduction > 0 ? `，早退扣款$${earlyLeaveDeduction}` : '') +
+        tripNoteForMonth_(employeeId, yearMonth)
     };
     
     Logger.log(' 月薪計算完成');

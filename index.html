@@ -379,6 +379,10 @@
                             </div>
                         </div>
                     </div>
+                    <!-- 停班日提醒（颱風假等）：initApp 帶回 7 天內的停班日 -->
+                    <div id="closure-banner" class="card p-4 border-2 border-sky-300 dark:border-sky-600 bg-sky-50 dark:bg-sky-900/30" style="display: none;">
+                        <ul id="closure-banner-list" class="space-y-1 text-sky-900 dark:text-sky-100 font-semibold"></ul>
+                    </div>
                     <!-- 彈性下班原因：上班時數未滿時請員工填寫，送管理員審核 -->
                     <div id="flex-checkout-section" class="card p-6 border-2 border-amber-300 dark:border-amber-600" style="display: none;">
                         <h2 data-i18n="FLEX_SECTION_TITLE"
@@ -893,6 +897,35 @@
                             </button>
                         </div>
                     </div>
+                    <!-- 出差申請 -->
+                    <div class="card p-6" id="trip-card">
+                        <h2 data-i18n="TRIP_TITLE" class="text-xl font-bold text-gray-800 dark:text-white mb-2">出差申請</h2>
+                        <p data-i18n="TRIP_DESC" class="text-gray-500 dark:text-gray-400 mb-4 text-sm">
+                            出差期間經管理員核准後，每天會自動註記為出差，不用打卡、不算缺卡，薪資照常發放。
+                        </p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label for="trip-start" data-i18n="TRIP_START" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">開始日期</label>
+                                <input type="date" id="trip-start" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label for="trip-end" data-i18n="TRIP_END" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">結束日期</label>
+                                <input type="date" id="trip-end" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label for="trip-location" data-i18n="TRIP_LOCATION" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">出差地點</label>
+                                <input type="text" id="trip-location" maxlength="100" data-i18n="TRIP_LOCATION_PLACEHOLDER" placeholder="例如：日本東京" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label for="trip-reason" data-i18n="TRIP_REASON" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">事由</label>
+                                <textarea id="trip-reason" rows="2" maxlength="500" data-i18n="TRIP_REASON_PLACEHOLDER" placeholder="例如：客戶設備安裝" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                            </div>
+                        </div>
+                        <button id="trip-submit-btn" data-i18n="TRIP_SUBMIT" class="w-full mt-4 py-3 px-4 rounded-lg font-bold btn-primary">送出出差申請</button>
+                        <h3 data-i18n="TRIP_MY_LIST" class="text-lg font-bold text-gray-800 dark:text-white mt-6 mb-2">我的出差</h3>
+                        <p id="trip-my-empty" data-i18n="TRIP_MY_EMPTY" class="text-sm text-gray-500 dark:text-gray-400" style="display: none;">目前沒有出差紀錄。</p>
+                        <ul id="trip-my-list" class="space-y-3"></ul>
+                    </div>
                     <!-- 請假記錄列表 -->
                     <div class="card p-6">
                         <h2 data-i18n="LEAVE_RECORDS_TITLE" 
@@ -1194,6 +1227,52 @@
                         </div>
                     </div>
                     
+                    <!-- 停班日（颱風假等）：全公司適用，照常發薪 -->
+                    <div class="card p-6 mt-6" id="closure-admin-card">
+                        <h2 data-i18n="CLOSURE_TITLE" class="text-xl font-bold text-gray-800 dark:text-white mb-2">停班日（颱風假）</h2>
+                        <p data-i18n="CLOSURE_DESC" class="text-gray-500 dark:text-gray-400 mb-4 text-sm">
+                            設定後全公司適用：停班時段不需打卡、不算缺卡或早退、不扣請假時數，薪資照常發放。
+                        </p>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                                <label for="closure-date" data-i18n="CLOSURE_DATE" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">日期</label>
+                                <input type="date" id="closure-date" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label for="closure-scope" data-i18n="CLOSURE_SCOPE" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">範圍</label>
+                                <select id="closure-scope" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="全天" data-i18n="CLOSURE_SCOPE_FULL">全天停班</option>
+                                    <option value="下午" data-i18n="CLOSURE_SCOPE_AFTERNOON">下午停班</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="closure-reason" data-i18n="CLOSURE_REASON" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">原因</label>
+                                <input type="text" id="closure-reason" maxlength="100" data-i18n="CLOSURE_REASON_PLACEHOLDER" placeholder="例如：○○颱風停班" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:bg-gray-700 dark:text-white focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                        </div>
+                        <label class="flex items-start gap-2 mt-3 text-sm text-gray-700 dark:text-gray-300">
+                            <input type="checkbox" id="closure-notify" class="mt-1">
+                            <span data-i18n="CLOSURE_NOTIFY">用 LINE 通知全體員工（會用到 LINE 官方帳號每月的推播額度）</span>
+                        </label>
+                        <button id="closure-add-btn" data-i18n="CLOSURE_ADD" class="w-full mt-4 py-3 px-4 rounded-lg font-bold btn-primary">新增停班日</button>
+                        <h3 data-i18n="CLOSURE_LIST" class="text-lg font-bold text-gray-800 dark:text-white mt-6 mb-2">已設定的停班日</h3>
+                        <p id="closure-list-empty" data-i18n="CLOSURE_EMPTY" class="text-sm text-gray-500 dark:text-gray-400" style="display: none;">目前沒有停班日。</p>
+                        <ul id="closure-list" class="space-y-2"></ul>
+                    </div>
+
+                    <!-- 出差審核 -->
+                    <div class="card p-6 mt-6" id="trip-admin-card">
+                        <h2 data-i18n="TRIP_PENDING_TITLE" class="text-xl font-bold text-gray-800 dark:text-white mb-2">待審核出差申請</h2>
+                        <p id="trip-pending-empty" data-i18n="TRIP_PENDING_EMPTY"
+                           class="text-center text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 p-4 rounded-lg font-semibold" style="display: none;">
+                            目前沒有待審核的出差申請。
+                        </p>
+                        <ul id="trip-pending-list" class="space-y-3"></ul>
+                        <h3 data-i18n="TRIP_APPROVED_TITLE" class="text-lg font-bold text-gray-800 dark:text-white mt-6 mb-2">已核准的出差</h3>
+                        <p id="trip-approved-empty" data-i18n="TRIP_APPROVED_EMPTY" class="text-sm text-gray-500 dark:text-gray-400" style="display: none;">沒有進行中或即將出發的出差。</p>
+                        <ul id="trip-approved-list" class="space-y-2"></ul>
+                    </div>
+
                     <!-- 彈性下班原因審核 -->
                     <div class="card p-6 mt-6">
                         <h2 data-i18n="FLEX_PENDING_TITLE"
@@ -1780,6 +1859,7 @@
         <script src="script.js"></script>
         <script src="location-picker.js"></script>
         <script src="flex-checkout.js"></script>
+        <script src="work-calendar.js"></script>
         <script src="analytics.js"></script>
         <script src="biometric.js"></script>
         <script src="reports.js"></script>

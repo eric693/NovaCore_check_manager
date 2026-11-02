@@ -136,8 +136,10 @@ function calculateWorkHours(startTime, endTime) {
     while (cursor <= lastDay) {
         const dateStr = toLocalDateStr(cursor);
 
-        // 例假日與國定假日不計入請假時數（holidays.js 提供清單，抓不到時只看星期）
-        if (typeof isNonWorkingDay === 'function' && isNonWorkingDay(dateStr)) {
+        // 例假日、國定假日與全天停班不計入請假時數（holidays.js 提供清單，抓不到時只看星期）
+        // 下午停班只算到午休開始（和後端 calculateWorkHoursAndDays_Unlimited 一致）
+        const closure = typeof closureScopeFor === 'function' ? closureScopeFor(dateStr) : null;
+        if (closure === '全天' || (typeof isNonWorkingDay === 'function' && isNonWorkingDay(dateStr))) {
             cursor.setDate(cursor.getDate() + 1);
             continue;
         }
@@ -157,9 +159,10 @@ function calculateWorkHours(startTime, endTime) {
         const fromMin = from.getHours() * 60 + from.getMinutes();
         const toMin = to.getHours() * 60 + to.getMinutes() + (to.getSeconds() >= 59 ? 1 : 0);
 
-        let minutes = overlap(fromMin, toMin, cfg.start, cfg.end);
+        const workEnd = closure === '下午' ? Math.min(cfg.end, cfg.lunchStart) : cfg.end;
+        let minutes = overlap(fromMin, toMin, cfg.start, workEnd);
         // 午休不算請假
-        minutes -= overlap(Math.max(fromMin, cfg.start), Math.min(toMin, cfg.end), cfg.lunchStart, cfg.lunchEnd);
+        minutes -= overlap(Math.max(fromMin, cfg.start), Math.min(toMin, workEnd), cfg.lunchStart, cfg.lunchEnd);
 
         totalMinutes += Math.max(0, minutes);
         cursor.setDate(cursor.getDate() + 1);

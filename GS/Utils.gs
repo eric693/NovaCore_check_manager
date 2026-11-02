@@ -71,8 +71,10 @@ function checkAttendanceAbnormal(attendanceRows) {
       const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const dayOfWeek = new Date(year, month - 1, day).getDay();
       const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+      // 國定假日原本也會被檢查，國慶日沒打卡就顯示成缺卡
+      const isHoliday = (typeof isNationalHoliday === 'function') && isNationalHoliday(dateStr);
       
-      if (dateStr < today && !isWeekend) {
+      if (dateStr < today && !isWeekend && !isHoliday) {
         allDatesInMonth.push(dateStr);
       }
     }
@@ -82,6 +84,11 @@ function checkAttendanceAbnormal(attendanceRows) {
   // ===== 步驟 3：檢查每一天的打卡狀態 =====
   if (targetUserId && targetMonth) {
     for (const date of allDatesInMonth) {
+      // 已核准出差、全天停班：不用打卡；下午停班：只需要上班卡（見下方下班卡檢查）
+      const exempt = (typeof exemptReasonOn_ === 'function') ? exemptReasonOn_(targetUserId, date) : null;
+      const afternoonClosure = exempt === 'closure' && closureScopeOn_(date) === CLOSURE_AFTERNOON;
+      if (exempt && !afternoonClosure) continue;
+
       const dayRecords = dailyRecords[targetUserId]?.[date] || [];
       const filteredRows = dayRecords.filter(r => r.note !== "系統虛擬卡");
       
@@ -172,7 +179,7 @@ function checkAttendanceAbnormal(attendanceRows) {
           punchTypes: "補下班被拒絕"
         });
         Logger.log(` ${date}: 補下班被拒絕`);
-      } else if (!hasPunchOut) {
+      } else if (!hasPunchOut && !afternoonClosure) {
         abnormalIdCounter++;
         abnormalRecords.push({
           date: date,

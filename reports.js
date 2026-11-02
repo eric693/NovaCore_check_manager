@@ -201,6 +201,7 @@ async function exportAttendanceReport(date) {
                 '當日工作地點': record.workLocation || '-',
                 '工作時數': workHours,
                 '狀態': statusText,
+                '停班／出差': formatClosureTripForExport(record),
                 '彈性下班原因': formatFlexForExport(record.flexCheckout),
                 '備註': notes || '-'
             });
@@ -219,6 +220,7 @@ async function exportAttendanceReport(date) {
             { wch: 20 },  // 當日工作地點
             { wch: 10 },  // 工作時數
             { wch: 15 },  // 狀態
+            { wch: 22 },  // 停班／出差
             { wch: 30 },  // 彈性下班原因
             { wch: 30 }   // 備註
         ];
@@ -369,6 +371,7 @@ async function exportEmployeePunchReport() {
                 '工作時數': workHours,
                 '工時（小時）': workHoursDecimal > 0 ? workHoursDecimal.toFixed(2) : '-',
                 '狀態': statusText,
+                '停班／出差': formatClosureTripForExport(record),
                 '彈性下班原因': formatFlexForExport(record.flexCheckout),
                 '備註': notes || '-'
             });
@@ -413,6 +416,7 @@ async function exportEmployeePunchReport() {
             { wch: 15 },  // 工作時數
             { wch: 12 },  // 工時（小時）
             { wch: 18 },  // 狀態
+            { wch: 22 },  // 停班／出差
             { wch: 30 },  // 彈性下班原因
             { wch: 30 }   // 備註
         ];
@@ -446,4 +450,14 @@ async function exportEmployeePunchReport() {
 function formatFlexForExport(fx) {
     if (!fx) return '-';
     return `${fx.reason}（${fx.status}${fx.comment ? '：' + fx.comment : ''}）`;
+}
+
+/**
+ * 匯出用：停班日、出差註記
+ */
+function formatClosureTripForExport(record) {
+    const parts = [];
+    if (record.closure) parts.push(`停班（${record.closure}）`);
+    if (record.trip) parts.push(`出差：${record.trip.location}`);
+    return parts.join('、') || '-';
 }

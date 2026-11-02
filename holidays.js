@@ -3,15 +3,19 @@
 // 只靠星期判斷的話，落在平日的國定假日會被當成一般上班日。
 
 const HOLIDAY_CACHE_KEY = 'holidays_cache';
-const HOLIDAY_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 一天抓一次就夠
+// 國定假日一年才變一次，但颱風停班日可能臨時新增，所以快取不能放太久
+const HOLIDAY_CACHE_TTL_MS = 30 * 60 * 1000;
 
 let nationalHolidays = [];
+// 公司停班日 { 'yyyy-MM-dd': '全天' | '下午' }（後端 getHolidays 一起帶回）
+let companyClosures = {};
 
 async function loadNationalHolidays() {
     try {
         const cached = JSON.parse(localStorage.getItem(HOLIDAY_CACHE_KEY) || 'null');
         if (cached && Date.now() - cached.savedAt < HOLIDAY_CACHE_TTL_MS && Array.isArray(cached.holidays)) {
             nationalHolidays = cached.holidays;
+            companyClosures = cached.closures || {};
             return nationalHolidays;
         }
     } catch {}
@@ -20,9 +24,11 @@ async function loadNationalHolidays() {
         const res = await callApifetch('getHolidays');
         if (res.ok && Array.isArray(res.holidays)) {
             nationalHolidays = res.holidays;
+            companyClosures = res.closures || {};
             localStorage.setItem(HOLIDAY_CACHE_KEY, JSON.stringify({
                 savedAt: Date.now(),
-                holidays: res.holidays
+                holidays: res.holidays,
+                closures: companyClosures
             }));
         }
     } catch (err) {
@@ -48,4 +54,9 @@ function isNonWorkingDay(dateStr) {
 /** 加班用：這天是不是整天都算加班（國定假日、例假日、休息日） */
 function isFullDayOvertime(dateStr) {
     return isNonWorkingDay(dateStr);
+}
+
+/** 公司停班日的範圍：'全天'、'下午' 或 null */
+function closureScopeFor(dateStr) {
+    return (dateStr && companyClosures[dateStr]) || null;
 }

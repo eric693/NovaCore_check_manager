@@ -801,6 +801,13 @@ function getAttendanceDetails(monthParam, userIdParam) {
       }
     });
     
+    // 停班日與已核准出差：沒有打卡也要出現在明細裡（日曆、報表才看得到）
+    const tripMap = userIdParam ? getApprovedTripMap_(userIdParam) : {};
+    const closureMap = getClosureMap_();
+    Object.keys(tripMap).concat(Object.keys(closureMap)).forEach(d => {
+      if (d.substring(0, 7) === monthParam) allDates.add(d);
+    });
+    
     Logger.log(`   涉及日期總數: ${allDates.size} 天`);
     
     //  按日期建立資料結構
@@ -900,6 +907,9 @@ function getAttendanceDetails(monthParam, userIdParam) {
         .reduce((latest, r) => (!latest || String(r.time) > String(latest.time)) ? r : latest, null);
       daily.workLocation = lastOut ? (lastOut.location || '') : '';
       daily.flexCheckout = flexMap[dateKey] || null;
+      daily.closure = closureMap[dateKey] || null;
+      daily.trip = tripMap[dateKey] || null;
+      if (daily.trip && !daily.workLocation) daily.workLocation = '出差：' + daily.trip.location;
       
       //  修正：如果有請假，根據打卡情況設定狀態
       if (daily.leave) {
@@ -922,6 +932,16 @@ function getAttendanceDetails(monthParam, userIdParam) {
         } else if (!hasPunchOut) {
           daily.reason = 'STATUS_PUNCH_OUT_MISSING';
         }
+      }
+      
+      // 出差、停班日沒打卡是正常的，不顯示成缺卡
+      const incomplete = !(hasPunchIn && hasPunchOut);
+      if (daily.trip && incomplete) {
+        daily.reason = 'STATUS_BUSINESS_TRIP';
+      } else if (daily.closure === CLOSURE_FULL && incomplete) {
+        daily.reason = 'STATUS_CLOSURE';
+      } else if (daily.closure === CLOSURE_AFTERNOON && !hasPunchOut) {
+        daily.reason = hasPunchIn ? 'STATUS_CLOSURE' : daily.reason;
       }
     });
     

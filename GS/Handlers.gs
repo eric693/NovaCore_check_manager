@@ -2348,7 +2348,9 @@ function handleInitApp(params) {
       params: session.params,
       abnormalRecords: abnormalResults,
       // 彈性下班待填寫：一起帶回去，前端登入後不用再多打一支 API
-      flexCheckout: getMyFlexCheckoutData_(userId)
+      flexCheckout: getMyFlexCheckoutData_(userId),
+      // 今天起 7 天內的停班日，首頁顯示提醒
+      upcomingClosures: upcomingClosures_(7)
     };
     
   } catch (error) {

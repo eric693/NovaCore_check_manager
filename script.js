@@ -202,6 +202,7 @@ function applyLoggedInUser(user) {
 function applyInitAppResult(res) {
     applyLoggedInUser(res.user);
     renderAbnormalRecords(res.abnormalRecords || []);
+    if (typeof renderClosureBanner === 'function') renderClosureBanner(res.upcomingClosures || []);
     if (res.flexCheckout && typeof renderFlexCheckoutPending === 'function') {
         renderFlexCheckoutPending(res.flexCheckout);
     } else if (typeof loadFlexCheckoutPending === 'function') {
@@ -929,6 +930,8 @@ function renderCalendarWithData(year, month, today, records, calendarGrid, month
                     dateClass = 'abnormal-day';
                     break;
                 case "STATUS_PUNCH_NORMAL":
+                case "STATUS_CLOSURE":        // 停班日（颱風假）
+                case "STATUS_BUSINESS_TRIP":  // 已核准出差
                     dateClass = 'day-off';
                     break;
                 case "STATUS_REPAIR_PENDING":
@@ -1275,6 +1278,18 @@ async function renderDailyRecords(dateKey) {
                     </div>
                 `;
                 
+                // 停班日、出差
+                let closureTripHtml = '';
+                if (recordData.closure || recordData.trip) {
+                    closureTripHtml = `
+                        <div class="bg-sky-50 dark:bg-sky-900/30 border border-sky-300 dark:border-sky-700 rounded-lg p-3 space-y-1 text-sm text-sky-900 dark:text-sky-100">
+                            ${recordData.closure ? `<p class="font-semibold">🌀 ${escapeHtml(t('CLOSURE_DAY_LABEL', { scope: closureScopeLabel(recordData.closure) }))}</p>` : ''}
+                            ${recordData.trip ? `<p class="font-semibold">✈️ ${escapeHtml(t('TRIP_DAY_LABEL', { location: recordData.trip.location }))}</p>
+                                ${recordData.trip.reason ? `<p>${escapeHtml(recordData.trip.reason)}</p>` : ''}` : ''}
+                        </div>
+                    `;
+                }
+                
                 // 當日工作地點（以下班打卡地點為準）與彈性下班原因
                 let workLocationHtml = '';
                 if (recordData.workLocation || recordData.flexCheckout) {
@@ -1299,7 +1314,7 @@ async function renderDailyRecords(dateKey) {
                     `;
                 }
                 
-                li.innerHTML = titleHtml + recordHtml + workLocationHtml + overtimeHtml + leaveHtml + statusHtml;
+                li.innerHTML = titleHtml + closureTripHtml + recordHtml + workLocationHtml + overtimeHtml + leaveHtml + statusHtml;
                 dailyRecordsList.appendChild(li);
                 renderTranslations(li);
             });
@@ -1841,6 +1856,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             fetchAndRenderReviewRequests();
             loadPendingOvertimeRequests();
             loadPendingFlexCheckout();
+            loadClosureAdmin();
+            loadTripAdmin();
             loadPendingWorklogs();  // 
             loadPendingLeaveRequests();
             displayAdminAnnouncements();
@@ -1852,6 +1869,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             initOvertimeTab();
         } else if (tabId === 'leave-view') {
             initLeaveTab();
+            loadMyTrips();
         } else if (tabId === 'salary-view') { //  新增
             initSalaryTab();
         } else if (tabId === 'worklog-view') { //  新增

@@ -287,8 +287,11 @@ function calculateWorkHoursAndDays_Unlimited(start, end) {
       const dayOfWeek = cursor.getDay();
       const isHoliday = (typeof isNationalHoliday === 'function') && isNationalHoliday(dateStr);
 
-      // 例假日、休息日與國定假日不計入請假時數
-      if (dayOfWeek === 0 || dayOfWeek === 6 || isHoliday) {
+      // 停班日（颱風假等）：全天停班整天不計；下午停班只算到午休開始
+      const closure = (typeof closureScopeOn_ === 'function') ? closureScopeOn_(dateStr) : null;
+
+      // 例假日、休息日、國定假日與全天停班不計入請假時數
+      if (dayOfWeek === 0 || dayOfWeek === 6 || isHoliday || closure === CLOSURE_FULL) {
         Logger.log(`   ${dateStr} 非工作日，略過`);
         cursor.setDate(cursor.getDate() + 1);
         continue;
@@ -305,9 +308,10 @@ function calculateWorkHoursAndDays_Unlimited(start, end) {
         const fromMin = from.getHours() * 60 + from.getMinutes();
         const toMin = to.getHours() * 60 + to.getMinutes() + (to.getSeconds() >= 59 ? 1 : 0);
 
-        let minutes = overlapMinutes_(fromMin, toMin, cfg.start, cfg.end);
+        const workEnd = closure === CLOSURE_AFTERNOON ? Math.min(cfg.end, cfg.lunchStart) : cfg.end;
+        let minutes = overlapMinutes_(fromMin, toMin, cfg.start, workEnd);
         // 午休不算請假
-        minutes -= overlapMinutes_(Math.max(fromMin, cfg.start), Math.min(toMin, cfg.end), cfg.lunchStart, cfg.lunchEnd);
+        minutes -= overlapMinutes_(Math.max(fromMin, cfg.start), Math.min(toMin, workEnd), cfg.lunchStart, cfg.lunchEnd);
         minutes = Math.max(0, minutes);
 
         if (minutes > 0) {

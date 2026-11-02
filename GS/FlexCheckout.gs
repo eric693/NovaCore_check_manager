@@ -247,6 +247,8 @@ function buildCheckoutSummary_(userId, outTime, outLocation, values) {
     flexRequired: false
   };
   if (hours === null || hours >= FLEX_CHECKOUT_MIN_HOURS) return summary;
+  // 停班日或出差：提早下班是正常的，不用填原因
+  if (exemptReasonOn_(userId, key)) return summary;
 
   try {
     if (approvedLeaveDates_(userId, [key])[key]) return summary;
@@ -279,7 +281,7 @@ function findFlexPendingDays_(userId) {
   const active = activeFlexRequestsByDate_(userId);
 
   return shortKeys
-    .filter(k => !leave[k] && !active[k])
+    .filter(k => !leave[k] && !active[k] && !exemptReasonOn_(userId, k))
     .sort()
     .map(k => ({
       date: k,
@@ -543,6 +545,11 @@ function calculateFlexEarlyLeave_(employeeId, yearMonth, hourlyRate) {
     }
     if (flex[date] && flex[date].status === FLEX_STATUS_APPROVED) {
       Logger.log(`   ${date}: ${hours}h，彈性下班原因已核准，不扣`);
+      return;
+    }
+    const exempt = exemptReasonOn_(employeeId, date);
+    if (exempt) {
+      Logger.log(`   ${date}: ${hours}h，${exempt === 'trip' ? '出差' : '停班日'}，不扣`);
       return;
     }
     try {
