@@ -1084,5 +1084,8 @@
   "TRIP_PENDING_TITLE": "Pending business trips",
   "TRIP_PENDING_EMPTY": "No pending business trips.",
   "TRIP_APPROVED_TITLE": "Approved trips",
-  "TRIP_APPROVED_EMPTY": "No current or upcoming trips."
+  "TRIP_APPROVED_EMPTY": "No current or upcoming trips.",
+  "PUNCH_SUCCESS_AT": "✅ {type} punch recorded at {location}",
+  "ERR_LOCATION_AMBIGUOUS": "❌ Location is only accurate to about {accuracy} m, so it can't tell which of \"{places}\" you are at. Move outdoors or near a window, wait a few seconds and try again",
+  "GEO_RETRY_HINT": "Make sure Location Services are on and LINE/your browser may use Precise Location (iPhone: Settings → Privacy & Security → Location Services → LINE → While Using the App, Precise Location on), then try again near a window or outdoors."
 }

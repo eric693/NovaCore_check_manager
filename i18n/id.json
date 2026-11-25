@@ -1062,5 +1062,8 @@
   "TRIP_PENDING_TITLE": "Pengajuan dinas menunggu",
   "TRIP_PENDING_EMPTY": "Tidak ada pengajuan dinas yang menunggu.",
   "TRIP_APPROVED_TITLE": "Dinas yang disetujui",
-  "TRIP_APPROVED_EMPTY": "Tidak ada dinas yang sedang atau akan berlangsung."
+  "TRIP_APPROVED_EMPTY": "Tidak ada dinas yang sedang atau akan berlangsung.",
+  "PUNCH_SUCCESS_AT": "✅ Absen {type} berhasil: {location}",
+  "ERR_LOCATION_AMBIGUOUS": "❌ Akurasi lokasi sekitar {accuracy} m, tidak bisa membedakan Anda di \"{places}\". Pindah ke luar ruangan atau dekat jendela, tunggu beberapa detik lalu coba lagi",
+  "GEO_RETRY_HINT": "Pastikan Layanan Lokasi aktif dan LINE/browser diizinkan memakai \"Lokasi Akurat\" (iPhone: Pengaturan → Privasi & Keamanan → Layanan Lokasi → LINE → Saat Menggunakan App, aktifkan \"Lokasi Akurat\"), lalu coba lagi dekat jendela atau di luar ruangan."
 }

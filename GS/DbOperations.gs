@@ -516,29 +516,20 @@ function punch(sessionToken, type, lat, lng, note, accuracy) {
   const accuracyError = checkPunchAccuracy_(accuracy);
   if (accuracyError) return accuracyError;
 
-  const shLoc = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_LOCATIONS);
-  const lastRow = shLoc.getLastRow();
-
-  if (lastRow < 2) {
-    return { ok: false, code: "ERR_NO_LOCATIONS" };
+  // 與 LINE 打卡共用同一套地點判斷（LineBotPunch.gs checkPunchLocation）
+  const loc = checkPunchLocation(lat, lng, accuracy);
+  if (loc.ambiguous) {
+    return {
+      ok: false, code: "ERR_LOCATION_AMBIGUOUS",
+      params: { accuracy: Math.round(parseFloat(accuracy)), places: loc.candidates.join('、') },
+      msg: loc.reason
+    };
   }
-
-  const values = shLoc.getRange(2, 1, lastRow - 1, 5).getValues();
-  let locationName = null;
-  let minDistance = Infinity;
-
-  for (let [, name, locLat, locLng, radius] of values) {
-    if (!name || !locLat || !locLng) continue;
-    const dist = getDistanceMeters_(lat, lng, Number(locLat), Number(locLng));
-    if (dist <= Number(radius) && dist < minDistance) {
-      locationName = name;
-      minDistance = dist;
-    }
+  if (!loc.valid) {
+    return { ok: false, code: loc.noLocations ? "ERR_NO_LOCATIONS" : "ERR_OUT_OF_RANGE" };
   }
-
-  if (!locationName) {
-    return { ok: false, code: "ERR_OUT_OF_RANGE" };
-  }
+  const locationName = loc.locationName;
+  const minDistance = loc.distance;
 
   // 防重複：同一天同類型（上班/下班）只能打一次（只需要讀最近兩天的紀錄）
   const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_ATTENDANCE);

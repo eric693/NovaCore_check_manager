@@ -1062,5 +1062,8 @@
   "TRIP_PENDING_TITLE": "承認待ちの出張申請",
   "TRIP_PENDING_EMPTY": "承認待ちの出張申請はありません。",
   "TRIP_APPROVED_TITLE": "承認済みの出張",
-  "TRIP_APPROVED_EMPTY": "進行中または予定の出張はありません。"
+  "TRIP_APPROVED_EMPTY": "進行中または予定の出張はありません。",
+  "PUNCH_SUCCESS_AT": "✅ {type}打刻成功：{location}",
+  "ERR_LOCATION_AMBIGUOUS": "❌ 位置の誤差が約 {accuracy} m あり、「{places}」のどこにいるか判別できません。屋外か窓際で数秒待ってから再度打刻してください",
+  "GEO_RETRY_HINT": "位置情報サービスがオンで、LINE／ブラウザに「正確な位置情報」が許可されているか確認し（iPhone：設定 → プライバシーとセキュリティ → 位置情報サービス → LINE → このAppの使用中のみ許可、「正確な位置情報」オン）、窓際か屋外で再度お試しください。"
 }

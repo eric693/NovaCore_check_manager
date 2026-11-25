@@ -1118,5 +1118,8 @@
   "TRIP_PENDING_TITLE": "Đơn công tác chờ duyệt",
   "TRIP_PENDING_EMPTY": "Không có đơn công tác chờ duyệt.",
   "TRIP_APPROVED_TITLE": "Chuyến công tác đã duyệt",
-  "TRIP_APPROVED_EMPTY": "Không có chuyến công tác đang diễn ra hoặc sắp tới."
+  "TRIP_APPROVED_EMPTY": "Không có chuyến công tác đang diễn ra hoặc sắp tới.",
+  "PUNCH_SUCCESS_AT": "✅ Chấm công {type} thành công: {location}",
+  "ERR_LOCATION_AMBIGUOUS": "❌ Sai số vị trí khoảng {accuracy} m, không phân biệt được bạn đang ở \"{places}\". Hãy ra ngoài trời hoặc gần cửa sổ, đợi vài giây rồi thử lại",
+  "GEO_RETRY_HINT": "Hãy bật Dịch vụ định vị và cho phép LINE/trình duyệt dùng \"Vị trí chính xác\" (iPhone: Cài đặt → Quyền riêng tư & Bảo mật → Dịch vụ định vị → LINE → Khi dùng ứng dụng, bật \"Vị trí chính xác\"), rồi thử lại gần cửa sổ hoặc ngoài trời."
 }

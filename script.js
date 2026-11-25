@@ -1730,7 +1730,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         getLocationBtn.disabled = true;
         
         // 原本用低精度定位又沒設逾時：室內常拿到幾百公尺外的座標，或一直卡在「取得中...」
-        getAccuratePosition({ goodEnough: 20, maxWait: 15000 }).then((pos) => {
+        getAccuratePosition({ goodEnough: 20, maxWait: 25000, settleAfter: 20000 }).then((pos) => { // 設定打卡點要等 GPS，不用 Wi-Fi 的粗略位置
             const lat = pos.latitude;
             const lng = pos.longitude;
             const radius = parseInt(document.getElementById('location-radius').value); // 新增
@@ -2855,7 +2855,10 @@ async function doPunch(type) {
 
     try {
         const res = await callApifetch(action);
-        const msg = t(res.code || "UNKNOWN_ERROR", res.params || {});
+        // 成功時把記錄到的地點一起顯示，地點不對員工當下就看得到，可以馬上用「當日異常修正」
+        const msg = res.ok && res.params && res.params.location
+            ? t('PUNCH_SUCCESS_AT', res.params)
+            : t(res.code || "UNKNOWN_ERROR", res.params || {});
         showNotification(msg, res.ok ? "success" : "error");
 
         if (res.ok) {
@@ -4005,7 +4008,7 @@ async function handleLinePunchFromUrl() {
     };
 
     try {
-        const position = await getAccuratePosition({ maxWait: 15000 });
+        const position = await getAccuratePosition();
 
         overlay.querySelector('#lpo-title').textContent = '正在打卡...';
         overlay.querySelector('#lpo-sub').textContent = '';
@@ -4062,7 +4065,8 @@ async function handleLinePunchFromUrl() {
                 ERR_LPT_EXPIRED:  '連結已過期（5 分鐘），請重新在 LINE 輸入打卡指令',
                 ERR_NOT_IN_RANGE: res.msg || '不在打卡範圍內',
                 ERR_DUPLICATE_PUNCH: '您剛剛已打過卡了',
-                ERR_LOCATION_INACCURATE: t('ERR_LOCATION_INACCURATE', res.params || {})
+                ERR_LOCATION_INACCURATE: t('ERR_LOCATION_INACCURATE', res.params || {}),
+                ERR_LOCATION_AMBIGUOUS: t('ERR_LOCATION_AMBIGUOUS', res.params || {})
             };
             setResult('❌', '打卡失敗', msgMap[res.code] || res.msg || '請稍後再試', '#f44336');
         }

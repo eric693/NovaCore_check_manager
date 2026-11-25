@@ -1284,7 +1284,15 @@ function determinePunchType(userId) {
 /**
  * 檢查打卡位置是否有效
  */
-function checkPunchLocation(lat, lng) {
+/**
+ * 判斷打卡地點（網頁與 LINE 打卡共用）
+ * @param {number} lat
+ * @param {number} lng
+ * @param {number} [accuracy] 手機回報的誤差（公尺）
+ * @return {{valid: boolean, locationName?: string, distance?: number, reason?: string,
+ *           nearestLocation?: Object, ambiguous?: boolean, candidates?: string[], noLocations?: boolean}}
+ */
+function checkPunchLocation(lat, lng, accuracy) {
   try {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_LOCATIONS);
     const lastRow = sheet.getLastRow();
@@ -1292,12 +1300,15 @@ function checkPunchLocation(lat, lng) {
     if (lastRow < 2) {
       return {
         valid: false,
+        noLocations: true,
         reason: '系統尚未設定打卡地點',
         nearestLocation: null
       };
     }
     
     const locations = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
+    const acc = parseFloat(accuracy);
+    const reach = [];   // 誤差範圍內可能所在的地點
     
     let nearestLocation = null;
     let minDistance = Infinity;
@@ -1319,6 +1330,8 @@ function checkPunchLocation(lat, lng) {
       
       // 範圍可能重疊（相鄰的客戶地點），要取最近的那個，
       // 不能遇到第一個符合就停，否則會記成表上排在前面的地點
+      if (acc > 0 && distance <= Number(radius) + acc && reach.indexOf(name) < 0) reach.push(name);
+
       if (distance <= Number(radius) &&
           (!validLocation || distance < validLocation.distance)) {
         validLocation = {
@@ -1329,6 +1342,17 @@ function checkPunchLocation(lat, lng) {
       }
     }
     
+    // 定位誤差大、誤差範圍又同時碰到兩個以上的地點：不猜，請員工重新定位
+    // （這就是「人在公司卻被記成隔壁客戶」的主要原因）
+    if (validLocation && acc > AMBIGUOUS_ACCURACY_M && reach.length >= 2) {
+      return {
+        valid: false,
+        ambiguous: true,
+        candidates: reach.slice(0, 3),
+        reason: '定位誤差約 ' + Math.round(acc) + ' 公尺，無法分辨是「' + reach.slice(0, 2).join('」或「') + '」'
+      };
+    }
+
     if (validLocation) {
       validLocation.distance = Math.round(validLocation.distance);
       return validLocation;

@@ -131,13 +131,24 @@ function setElementSrc(id, src) {
 
 /**
  * 取得盡量精確的目前位置
+ *
+ * 同時跑兩條路：
+ *   - GPS 高精度持續監聽（watchPosition）：準，但室內、LINE 內建瀏覽器常常十幾秒鎖不到
+ *   - 低精度一次定位（Wi-Fi／基地台）：幾秒內就有，可接受一分鐘內的快取位置
+ * 有夠準的（≤ goodEnough）就立刻用；過了 settleAfter 還沒有，但手上已有 ≤ 100m 的也先用；
+ * 到 maxWait 就用目前最好的那一筆。後端會再檢查誤差，太大會請員工重新定位。
+ *
+ * 原本只跑 GPS、12 秒逾時，而且定位一開始常見的「暫時無法定位」錯誤會立刻放棄，
+ * 員工在室內就一直顯示「位置請求超時」。
+ *
  * @param {Object} [opts]
  * @param {number} [opts.goodEnough=30] 誤差（公尺）小於這個值就立刻回傳
- * @param {number} [opts.maxWait=12000] 最多等多久（毫秒）；時間到就回傳目前最好的一筆
+ * @param {number} [opts.maxWait=20000] 最多等多久（毫秒）
+ * @param {number} [opts.settleAfter=6000] 過了這麼久，已有 ≤ 100m 的位置就不再等
  * @returns {Promise<{latitude:number, longitude:number, accuracy:number}>}
  *          失敗時 reject 的錯誤帶有 code（1 權限、2 無法定位、3 逾時），與原生 GeolocationPositionError 相同
  */
-function getAccuratePosition({ goodEnough = 30, maxWait = 12000 } = {}) {
+function getAccuratePosition({ goodEnough = 30, maxWait = 20000, settleAfter = 6000 } = {}) {
     return new Promise((resolve, reject) => {
         if (!navigator.geolocation) {
             const err = new Error('Geolocation not supported');
@@ -146,38 +157,47 @@ function getAccuratePosition({ goodEnough = 30, maxWait = 12000 } = {}) {
             return;
         }
 
+        const startedAt = Date.now();
         let best = null;
         let watchId = null;
-        let timer = null;
         let settled = false;
+        let lastError = null;
+        let failedChannels = 0;   // GPS 與 Wi-Fi 兩條路都失敗就不用等到 maxWait
+        const timers = [];
 
         const finish = (fn, value) => {
             if (settled) return;
             settled = true;
             if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-            clearTimeout(timer);
+            timers.forEach(clearTimeout);
             fn(value);
         };
-        const done = () => best
-            ? finish(resolve, best)
-            : finish(reject, Object.assign(new Error('Location timeout'), { code: 3 }));
+        const giveUp = () => finish(reject, lastError && lastError.code !== 3
+            ? lastError
+            : Object.assign(new Error('Location timeout'), { code: 3 }));
+        const done = () => best ? finish(resolve, best) : giveUp();
 
-        timer = setTimeout(done, maxWait);
-        watchId = navigator.geolocation.watchPosition(
-            (pos) => {
-                const { latitude, longitude, accuracy } = pos.coords;
-                if (!best || accuracy < best.accuracy) {
-                    best = { latitude, longitude, accuracy };
-                }
-                if (accuracy <= goodEnough) done();
-            },
-            (err) => {
-                // 拒絕權限不用再等；其他錯誤若已經有一筆就先用
-                if (err.code === 1 || !best) finish(reject, err);
-                else done();
-            },
-            { enableHighAccuracy: true, maximumAge: 0, timeout: maxWait }
-        );
+        const consider = (pos) => {
+            const { latitude, longitude, accuracy } = pos.coords;
+            if (!best || accuracy < best.accuracy) best = { latitude, longitude, accuracy };
+            if (best.accuracy <= goodEnough) return done();
+            if (Date.now() - startedAt >= settleAfter && best.accuracy <= 100) return done();
+        };
+        const onError = (err) => {
+            // 拒絕權限再等也沒用；其他錯誤（暫時無法定位、單次逾時）先記著，繼續等另一條路
+            if (err && err.code === 1) return finish(reject, err);
+            lastError = err;
+            if (++failedChannels >= 2 && !best) giveUp();
+        };
+
+        timers.push(setTimeout(done, maxWait));
+        // 到了 settleAfter 再檢查一次（期間可能沒有新的定位更新觸發 consider）
+        timers.push(setTimeout(() => { if (best && best.accuracy <= 100) done(); }, settleAfter));
+
+        watchId = navigator.geolocation.watchPosition(consider, onError,
+            { enableHighAccuracy: true, maximumAge: 0 });
+        navigator.geolocation.getCurrentPosition(consider, onError,
+            { enableHighAccuracy: false, maximumAge: 60000, timeout: maxWait });
     });
 }
 
@@ -191,7 +211,8 @@ function geolocationErrorMessage(err) {
     };
     switch (err && err.code) {
         case 1: return tr('ERROR_GEOLOCATION_PERMISSION_DENIED', '請允許瀏覽器存取位置');
-        case 3: return tr('ERROR_GEOLOCATION_TIMEOUT', '定位逾時，請確認 GPS 已開啟');
-        default: return tr('ERROR_GEOLOCATION_UNAVAILABLE', '目前無法取得位置');
+        // 逾時、無法定位時一併告訴員工怎麼處理，不然只會一直重按
+        case 3: return tr('ERROR_GEOLOCATION_TIMEOUT', '定位逾時') + ' ' + tr('GEO_RETRY_HINT', '');
+        default: return tr('ERROR_GEOLOCATION_UNAVAILABLE', '目前無法取得位置') + ' ' + tr('GEO_RETRY_HINT', '');
     }
 }

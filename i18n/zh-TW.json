@@ -1102,5 +1102,8 @@
     "TRIP_PENDING_TITLE": "待審核出差申請",
     "TRIP_PENDING_EMPTY": "目前沒有待審核的出差申請。",
     "TRIP_APPROVED_TITLE": "已核准的出差",
-    "TRIP_APPROVED_EMPTY": "沒有進行中或即將出發的出差。"
+    "TRIP_APPROVED_EMPTY": "沒有進行中或即將出發的出差。",
+    "PUNCH_SUCCESS_AT": "✅{type}打卡成功：{location}",
+    "ERR_LOCATION_AMBIGUOUS": "❌ 定位誤差約 {accuracy} 公尺，無法分辨您在「{places}」哪一個地點。請到戶外或窗邊等幾秒，再重新打卡",
+    "GEO_RETRY_HINT": "請確認手機已開啟定位服務，並允許 LINE／瀏覽器使用「精確位置」（iPhone：設定 → 隱私權與安全性 → 定位服務 → LINE → 使用 App 期間，並開啟「精確位置」），再到窗邊或戶外重試。"
 }

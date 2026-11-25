@@ -234,21 +234,28 @@ function handleLinePunchWithToken(params) {
     const accuracyError = checkPunchAccuracy_(params.acc);
     if (accuracyError) return accuracyError;
 
-    // 單次使用：立即刪除 token
-    props.deleteProperty(key);
-
     const userId    = data.userId;
     const punchType = data.punchType;
     const latF      = parseFloat(lat);
     const lngF      = parseFloat(lng);
 
-    // 地理圍欄驗證
-    const locationCheck = checkPunchLocation(latF, lngF);
+    // 地理圍欄驗證：也在刪 token 之前，定位不準或不在範圍時，員工換個位置用同一個連結重試
+    const locationCheck = checkPunchLocation(latF, lngF, params.acc);
+    if (locationCheck.ambiguous) {
+      return {
+        ok: false, code: 'ERR_LOCATION_AMBIGUOUS',
+        params: { accuracy: Math.round(parseFloat(params.acc)), places: locationCheck.candidates.join('、') },
+        msg: locationCheck.reason
+      };
+    }
     if (!locationCheck.valid) {
       const nearest = locationCheck.nearestLocation;
       const hint = nearest ? `（距離最近地點「${nearest.name}」還有 ${nearest.distance} 公尺）` : '';
       return { ok: false, code: 'ERR_NOT_IN_RANGE', msg: locationCheck.reason + hint };
     }
+
+    // 單次使用：通過檢查後才刪除 token
+    props.deleteProperty(key);
 
     // 防重複打卡
     if (isDuplicatePunch_(userId, punchType)) {
